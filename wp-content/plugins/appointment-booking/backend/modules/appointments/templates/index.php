@@ -47,7 +47,14 @@ use Bookly\Lib\Utils\Common;
                         <div class="form-group">
                             <select class="form-control bookly-js-select" id="bookly-filter-staff" data-placeholder="<?php echo esc_attr( Common::getTranslatedOption( 'bookly_l10n_label_employee' ) ) ?>">
                                 <?php foreach ( $staff_members as $staff ) : ?>
-                                    <option value="<?php echo $staff['id'] ?>"><?php echo esc_html( $staff['full_name'] ) ?></option>
+                                    <!--<option value="<?php //echo $staff['id'] ?>"><?php //echo esc_html( $staff['full_name'] ) ?></option>-->
+									
+									<?php	if (get_current_user_id() == $staff['id'] ||
+											get_current_user_id() == 1){ // capro ?>
+								
+											<option value="<?php echo $staff['id'] ?>"><?php esc_html_e( $staff['full_name'] ) ?></option>
+									<?php   } ?>
+									
                                 <?php endforeach ?>
                             </select>
                         </div>

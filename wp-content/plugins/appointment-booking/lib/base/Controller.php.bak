@@ -92,10 +92,6 @@ abstract class Controller extends Components
     protected function hasAccess( $action )
     {
         $permissions = $this->getPermissions();
-	// es para que los subscriptores puedan ver las citas 
-		if ($action == 'executeGetAppointments'){
-			$permissions[ $action ]='user';
-		}
         $security    = isset ( $permissions[ $action ] ) ? $permissions[ $action ] : null;
 
         if ( is_null( $security ) ) {

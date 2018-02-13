@@ -34,12 +34,6 @@ class Backend
         // Frontend controllers that work via admin-ajax.php.
         $this->bookingController = Frontend\Modules\Booking\Controller::getInstance();
         $this->customerProfileController = Frontend\Modules\CustomerProfile\Controller::getInstance();
-        if ( Lib\Config::paymentTypeEnabled( Lib\Entities\Payment::TYPE_AUTHORIZENET ) ) {
-            $this->authorizeNetController = Frontend\Modules\AuthorizeNet\Controller::getInstance();
-        }
-        if ( Lib\Config::paymentTypeEnabled( Lib\Entities\Payment::TYPE_STRIPE ) ) {
-            $this->stripeController = Frontend\Modules\Stripe\Controller::getInstance();
-        }
         $this->wooCommerceController = Frontend\Modules\WooCommerce\Controller::getInstance();
 
         add_action( 'admin_menu', array( $this, 'addAdminMenu' ) );
@@ -70,7 +64,7 @@ class Backend
         /** @var \WP_User $current_user */
         global $current_user, $submenu;
 
-        if ( $current_user->has_cap( 'administrator' ) || $current_user->has_cap('subscriber') || Lib\Entities\Staff::query()->where( 'wp_user_id', $current_user->ID )->count() ) {
+        if ( $current_user->has_cap( 'administrator' ) || Lib\Entities\Staff::query()->where( 'wp_user_id', $current_user->ID )->count() ) {
             $dynamic_position = '80.0000001' . mt_rand( 1, 1000 ); // position always is under `Settings`
             add_menu_page( 'Bookly', 'Bookly', 'read', 'bookly-menu', '',
                 plugins_url( 'resources/images/menu.png', __FILE__ ), $dynamic_position );
@@ -93,32 +87,26 @@ class Backend
 
                 add_submenu_page( 'bookly-menu', $calendar, $calendar, 'read',
                     Modules\Calendar\Controller::page_slug, array( $this->calendarController, 'index' ) );
-               
-		if ( $current_user->has_cap( 'administrator' )) {	
-                     add_submenu_page( 'bookly-menu', $appointments, $appointments, 'administrator',
-                        Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
-		}else{
-		     if ( $current_user->has_cap( 'subscriber' )) {	
-			add_submenu_page( 'bookly-menu', $appointments, $appointments, 'subscriber',
-			     Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
-                     }
-		}
-				
-				
-                Lib\Proxy\Shared::renderBooklyMenuAfterAppointments();
-                if ( $current_user->has_cap( 'administrator' )) {
-                    add_submenu_page( 'bookly-menu', $staff_members, $staff_members, 'subscriber',
 
+				//	add_submenu_page( 'bookly-menu', $appointments, $appointments, 'manage_options',
+                //    Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
 
+        		if ( $current_user->has_cap( 'administrator' )) {	
+                     add_submenu_page( 'bookly-menu', $appointments, $appointments, 'administrator', Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
+        		}else{
+        		     if ( $current_user->has_cap( 'subscriber' )) {	
+        		      	add_submenu_page( 'bookly-menu', $appointments, $appointments, 'subscriber', Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
+                    }
+        		}
 
-
-
-                    Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
-                Lib\Proxy\Locations::addBooklyMenuItem();
+				Lib\Proxy\Locations::addBooklyMenuItem();
                 Lib\Proxy\Packages::addBooklyMenuItem();
                 if ( $current_user->has_cap( 'administrator' ) ) {
-                    add_submenu_page( 'bookly-menu', $staff_members, $staff_members, 'manage_options',
-                        Modules\Staff\Controller::page_slug, array( $this->staffController, 'index' ) );
+                    //add_submenu_page( 'bookly-menu', $staff_members, $staff_members, 'manage_options',
+                      //  Modules\Staff\Controller::page_slug, array( $this->staffController, 'index' ) );
+					add_submenu_page( 'bookly-menu', $staff_members, $staff_members, 'subscriber', 
+					Modules\Staff\Controller::page_slug, array( $this->staffController, 'index' ) );					  
+					  
                 } else {
                     if ( get_option( 'bookly_gen_allow_staff_edit_profile' ) == 1 ) {
                         add_submenu_page( 'bookly-menu', __( 'Profile', 'bookly' ), __( 'Profile', 'bookly' ), 'read',
