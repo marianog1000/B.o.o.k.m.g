@@ -1,0 +1,92 @@
+[30-Nov-2017 23:18:25 America/Argentina/Buenos_Aires] PHP Warning:  require(/home/caprocom/public_html/wp-includes/load.php): failed to open stream: No such file or directory in /home/caprocom/public_html/wp-settings.php on line 19
+[30-Nov-2017 23:18:25 America/Argentina/Buenos_Aires] PHP Fatal error:  require(): Failed opening required '/home/caprocom/public_html/wp-includes/load.php' (include_path='.:/opt/alt/php56/usr/share/pear:/opt/alt/php56/usr/share/php') in /home/caprocom/public_html/wp-settings.php on line 19
+[01-Dec-2017 02:20:25 UTC] PHP Warning:  require(/home/caprocom/public_html/wp-includes/random_compat/random.php): failed to open stream: No such file or directory in /home/caprocom/public_html/wp-includes/compat.php on line 435
+[01-Dec-2017 02:20:25 UTC] PHP Fatal error:  require(): Failed opening required '/home/caprocom/public_html/wp-includes/random_compat/random.php' (include_path='.:/opt/alt/php56/usr/share/pear:/opt/alt/php56/usr/share/php') in /home/caprocom/public_html/wp-includes/compat.php on line 435
+[01-Dec-2017 02:22:25 UTC] PHP Warning:  require(/home/caprocom/public_html/wp-includes/random_compat/random.php): failed to open stream: No such file or directory in /home/caprocom/public_html/wp-includes/compat.php on line 435
+[01-Dec-2017 02:22:25 UTC] PHP Fatal error:  require(): Failed opening required '/home/caprocom/public_html/wp-includes/random_compat/random.php' (include_path='.:/opt/alt/php56/usr/share/pear:/opt/alt/php56/usr/share/php') in /home/caprocom/public_html/wp-includes/compat.php on line 435
+[01-Dec-2017 02:24:25 UTC] PHP Warning:  require(/home/caprocom/public_html/wp-includes/random_compat/random.php): failed to open stream: No such file or directory in /home/caprocom/public_html/wp-includes/compat.php on line 435
+[01-Dec-2017 02:24:25 UTC] PHP Fatal error:  require(): Failed opening required '/home/caprocom/public_html/wp-includes/random_compat/random.php' (include_path='.:/opt/alt/php56/usr/share/pear:/opt/alt/php56/usr/share/php') in /home/caprocom/public_html/wp-includes/compat.php on line 435
+[02-Dec-2017 15:10:51 UTC] PHP Notice:  Undefined index: positions in /home/caprocom/public_html/wp-content/plugins/appointment-booking/backend/modules/services/forms/Service.php on line 83
+[02-Dec-2017 15:11:20 UTC] PHP Notice:  Undefined index: positions in /home/caprocom/public_html/wp-content/plugins/appointment-booking/backend/modules/services/forms/Service.php on line 83
+[02-Dec-2017 15:51:28 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[02-Dec-2017 15:51:28 UTC] PHP Fatal error:  Uncaught exception 'Google_Auth_Exception' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php:189
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Client.php(218): Google_Auth_OAuth2->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend(' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php on line 189
+[02-Dec-2017 15:54:04 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[02-Dec-2017 15:54:04 UTC] PHP Fatal error:  Uncaught exception 'InvalidArgumentException' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php:434
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend('Date: Sat, 2 De...', 'Hola lorenadujm...')
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1215): PHPM in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php on line 434
+[02-Dec-2017 15:54:40 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[02-Dec-2017 15:54:41 UTC] PHP Fatal error:  Uncaught exception 'InvalidArgumentException' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php:434
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend('Date: Sat, 2 De...', 'Hola lorenadujm...')
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1215): PHPM in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php on line 434
+[02-Dec-2017 15:55:08 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[02-Dec-2017 15:55:08 UTC] PHP Fatal error:  Uncaught exception 'InvalidArgumentException' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php:434
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend('Date: Sat, 2 De...', 'Hola lorenadujm...')
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1215): PHPM in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php on line 434
+[02-Dec-2017 15:56:17 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[02-Dec-2017 15:56:17 UTC] PHP Fatal error:  Uncaught exception 'InvalidArgumentException' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php:434
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend('Date: Sat, 2 De...', 'Hola lorenadujm...')
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1215): PHPM in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php on line 434
+[02-Dec-2017 16:02:04 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[02-Dec-2017 16:02:04 UTC] PHP Fatal error:  Uncaught exception 'InvalidArgumentException' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php:434
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend('Date: Sat, 2 De...', 'Hola lorenadujm...')
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1215): PHPM in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/google-api-php-client/src/Google/Client.php on line 434
+[01-Feb-2018 00:28:50 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[01-Feb-2018 00:31:12 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[01-Feb-2018 00:31:13 UTC] PHP Fatal error:  Uncaught exception 'Google_Auth_Exception' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php:189
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Client.php(218): Google_Auth_OAuth2->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend(' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php on line 189
+[01-Feb-2018 00:34:27 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[01-Feb-2018 00:34:27 UTC] PHP Fatal error:  Uncaught exception 'Google_Auth_Exception' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php:189
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Client.php(218): Google_Auth_OAuth2->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend(' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php on line 189
+[01-Feb-2018 00:37:09 UTC] PHP Warning:  Illegal string offset 'refresh_token' in /home/caprocom/public_html/wp-content/plugins/gmail-smtp/main.php on line 685
+[01-Feb-2018 00:37:09 UTC] PHP Fatal error:  Uncaught exception 'Google_Auth_Exception' with message 'Invalid token format' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php:189
+Stack trace:
+#0 /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Client.php(218): Google_Auth_OAuth2->setAccessToken('"{\\"access_toke...')
+#1 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauthgoogle.php(139): Google_Client->setAccessToken('"{\\"access_toke...')
+#2 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.smtp.php(475): GmailXOAuth2->getOauth64()
+#3 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/class.phpmaileroauth.php(153): SMTP->authenticate('', '', 'XOAUTH2', '', '', Object(GmailXOAuth2))
+#4 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1542): PHPMailerOAuth->smtpConnect(Array)
+#5 /home/caprocom/public_html/wp-content/plugins/gmail-smtp/PHPMailer/class.phpmailer.php(1337): PHPMailer->smtpSend(' in /home/caprocom/public_html/wp-content/plugins/appointment-booking/lib/google/Auth/OAuth2.php on line 189
