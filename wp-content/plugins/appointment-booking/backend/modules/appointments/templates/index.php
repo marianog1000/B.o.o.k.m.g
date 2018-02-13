@@ -39,13 +39,23 @@ use Bookly\Lib\Config;
                                 </span>
                             </button>
                         </div>
-                    </div>
+                    </div>	
+					
+					
                     <div class="col-md-4 col-lg-2">
                         <div class="form-group">
                             <select class="form-control bookly-js-chosen-select" id="bookly-filter-staff" data-placeholder="<?php echo esc_attr( \Bookly\Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_employee' ) ) ?>">
-                                <option value="-1"></option>
+                                <!--<option value="-1"></option>-->
                                 <?php foreach ( $staff_members as $staff ) : ?>
-                                    <option value="<?php echo $staff['id'] ?>"><?php esc_html_e( $staff['full_name'] ) ?></option>
+								<?php	//echo 		get_current_user_id();?>
+
+
+								<?php	//if (get_current_user_id() == $staff['id']){ ?>
+								<?php	if (get_current_user_id() == $staff['id'] ||
+										get_current_user_id() == 1){ // capro ?>
+								
+											<option value="<?php echo $staff['id'] ?>"><?php esc_html_e( $staff['full_name'] ) ?></option>
+								<?php   } ?>
                                 <?php endforeach ?>
                             </select>
                         </div>

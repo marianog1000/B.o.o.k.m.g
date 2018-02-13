@@ -22,6 +22,7 @@ abstract class Controller extends Components
      */
     public function forward( $action, $check_csrf = true, $check_access = true )
     {
+			
         if ( ( ! $check_csrf || $this->csrfTokenValid( $action ) ) && ( ! $check_access || $this->hasAccess( $action ) ) ) {
             date_default_timezone_set( 'UTC' );
             call_user_func( array( $this, $action ) );
@@ -89,7 +90,13 @@ abstract class Controller extends Components
      */
     protected function hasAccess( $action )
     {
-        $permissions = $this->getPermissions();
+        $permissions = $this->getPermissions();		
+	
+		// es para que los subscriptores puedan ver las citas 
+		if ($action == 'executeGetAppointments'){
+			$permissions[ $action ]='user';
+		}
+		
         $security    = isset ( $permissions[ $action ] ) ? $permissions[ $action ] : null;
 
         if ( is_null( $security ) ) {
