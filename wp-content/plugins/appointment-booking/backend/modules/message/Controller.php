@@ -21,18 +21,54 @@ class Controller extends Lib\Base\Controller
         ) );
 
         $this->enqueueScripts( array(
-            'backend' => array( 'bootstrap/js/bootstrap.min.js' => array( 'jquery' ) ),
+            'backend' => array(
+                'bootstrap/js/bootstrap.min.js' => array( 'jquery' ),
+                'js/datatables.min.js'          => array( 'jquery' ),
+            ),
+            'module'  => array( 'js/message.js' => array( 'jquery' ) ),
         ) );
 
-        $message_ids  = array();
-        $messages     = Lib\Entities\Message::query( 'm' )->select( 'm.created, m.subject, m.seen, m.body' )->sortBy( 'id' )->order( 'DESC' )->fetchArray();
-        $new_messages = Lib\Entities\Message::query( 'm' )->select( 'm.message_id' )->where( 'm.seen', '0' )->fetchArray();
-        foreach ( $new_messages as $message ) {
-            $message_ids[] = $message['message_id'];
-        }
-        Lib\API::seenMessages( $message_ids );
+        wp_localize_script( 'bookly-message.js', 'BooklyL10n', array(
+            'csrf_token'  => Lib\Utils\Common::getCsrfToken(),
+            'datatable' => array(
+                'zeroRecords' => __( 'No records.', 'bookly' ),
+                'processing'  => __( 'Processing...', 'bookly' ),
+                'per_page'    => __( 'messages', 'bookly' ),
+                'paginate' => array(
+                    'first'    => __( 'First', 'bookly' ),
+                    'previous' => __( 'Previous', 'bookly' ),
+                    'next'     => __( 'Next', 'bookly' ),
+                    'last'     => __( 'Last', 'bookly' ),
+                )
+            )
+        ) );
+        $this->render( 'index' );
+    }
 
-        $this->render( 'index', compact( 'messages' ) );
+    /**
+     * Get messages
+     */
+    public function executeGetMessages()
+    {
+        $query = Lib\Entities\Message::query( 'm' );
+        $total = $query->count();
+
+        $query->select( 'm.created, m.subject, m.seen, m.body, m.message_id' )
+            ->sortBy( 'm.seen, m.message_id' )->order( 'DESC' );
+
+        $query->limit( $this->getParameter( 'length' ) )->offset( $this->getParameter( 'start' ) );
+
+        $data = $query->fetchArray();
+        foreach ( $data as &$row ) {
+            $row['created'] = Lib\Utils\DateTime::formatDateTime( $row['created'] );
+        }
+
+        wp_send_json( array(
+            'draw'            => ( int ) $this->getParameter( 'draw' ),
+            'recordsTotal'    => $total,
+            'recordsFiltered' => count( $data ),
+            'data'            => $data,
+        ) );
     }
 
     /**
@@ -46,7 +82,18 @@ class Controller extends Lib\Base\Controller
             $message_ids[] = $message['message_id'];
         }
 
-        Lib\API::seenMessages( $message_ids );
+        if ( $message_ids ) {
+            Lib\API::seenMessages( $message_ids );
+        }
+        wp_send_json_success();
+    }
+
+    /**
+     * Mark some massages was read
+     */
+    public function executeMarkReadMessages()
+    {
+        Lib\API::seenMessages( (array) $this->getParameter( 'message_ids' ) );
         wp_send_json_success();
     }
 

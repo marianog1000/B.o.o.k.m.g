@@ -18,8 +18,11 @@ use Bookly\Lib\Base;
  * @method static array getDaysAndTimes()
  * @see \BooklySpecialDays\Lib\ProxyProviders\Local::getDaysAndTimes()
  *
+ * @method static void renderStaffCabinetSettings() Render special days in PopUp for short_code settings
+ * @see \BooklySpecialDays\Lib\ProxyProviders\Local::renderStaffCabinetSettings()
+ *
  */
-class SpecialDays extends Base\ProxyInvoker
+abstract class SpecialDays extends Base\ProxyInvoker
 {
 
 }

@@ -1,14 +1,16 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+use Bookly\Backend\Modules\Appearance\Components;
+use Bookly\Lib\Proxy;
 /** @var Bookly\Backend\Modules\Appearance\Lib\Helper $editable */
 ?>
 <div class="bookly-form">
     <?php include '_progress_tracker.php' ?>
 
     <div class="bookly-box">
-        <?php $editable::renderText( 'bookly_l10n_info_details_step', $this->render( '_codes', array( 'step' => 6 ), false ) ) ?>
+        <?php $editable::renderText( 'bookly_l10n_info_details_step', Components::getInstance()->renderCodes( array( 'step' => 6 ), false ) ) ?>
     </div>
     <div class="bookly-box">
-        <?php $editable::renderText( 'bookly_l10n_info_details_step_guest', $this->render( '_codes', array( 'step' => 6, 'extra_codes' => 1 ), false ), 'bottom', __( 'Visible to non-logged in customers only', 'bookly' ) ) ?>
+        <?php $editable::renderText( 'bookly_l10n_info_details_step_guest', Components::getInstance()->renderCodes( array( 'step' => 6, 'extra_codes' => 1 ), false ), 'bottom', __( 'Visible to non-logged in customers only', 'bookly' ) ) ?>
     </div>
     <div class="bookly-box" id="bookly-js-show-login-form">
         <div class="bookly-btn bookly-inline-block">
@@ -50,9 +52,17 @@
                 </div>
             </div>
         </div>
+        <div class="bookly-box" id="bookly-js-notes">
+            <div class="bookly-form-group">
+                <?php $editable::renderLabel( array( 'bookly_l10n_label_notes' ) ) ?>
+                <div>
+                    <textarea rows="3"></textarea>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <?php \Bookly\Lib\Proxy\RecurringAppointments::renderAppearanceEditableInfoMessage() ?>
+    <?php Proxy\RecurringAppointments::renderAppearanceInfoMessage() ?>
 
     <div class="bookly-box bookly-nav-steps">
         <div class="bookly-back-step bookly-js-back-step bookly-btn">

@@ -12,30 +12,11 @@ use Bookly\Lib\Entities\CustomerAppointment;
             $values['bookly_gen_min_time_prior_booking'] );
         Common::optionToggle( 'bookly_gen_min_time_prior_cancel', __( 'Minimum time requirement prior to canceling', 'bookly' ), __( 'Set how late appointments can be cancelled (for example, require customers to cancel at least 1 hour before the appointment time).', 'bookly' ),
             $values['bookly_gen_min_time_prior_cancel'] );
-        Common::optionText( 'bookly_gen_approve_page_url', __( 'Approve appointment URL (success)', 'bookly' ), __( 'Set the URL of a page that is shown to staff after they successfully approved the appointment.', 'bookly' ) );
-        Common::optionText( 'bookly_gen_approve_denied_page_url', __( 'Approve appointment URL (denied)', 'bookly' ), __( 'Set the URL of a page that is shown to staff when the approval of appointment cannot be done (due to capacity, changed status, etc.).', 'bookly' ) );
-        Common::optionText( 'bookly_gen_cancel_page_url', __( 'Cancel appointment URL (success)', 'bookly' ), __( 'Set the URL of a page that is shown to clients after they successfully cancelled their appointment.', 'bookly' ) );
-        Common::optionText( 'bookly_gen_cancel_denied_page_url', __( 'Cancel appointment URL (denied)', 'bookly' ), __( 'Set the URL of a page that is shown to clients when the cancellation of appointment is not available anymore.', 'bookly' ) );
         Common::optionNumeric( 'bookly_gen_max_days_for_booking', __( 'Number of days available for booking', 'bookly' ), __( 'Set how far in the future the clients can book appointments.', 'bookly' ), 1, 1 );
-        Common::optionToggle( 'bookly_gen_use_client_time_zone', __( 'Display available time slots in client\'s time zone', 'bookly' ), __( 'The value is taken from client’s browser.', 'bookly' ) )
-    ?>
-    <div class="form-group">
-        <label for="bookly_settings_final_step_url_mode"><?php _e( 'Final step URL', 'bookly' ) ?></label>
-        <p class="help-block"><?php _e( 'Set the URL of a page that the user will be forwarded to after successful booking. If disabled then the default Done step is displayed.', 'bookly' ) ?></p>
-        <select class="form-control" id="bookly_settings_final_step_url_mode">
-            <?php foreach ( array( __( 'Disabled', 'bookly' ) => 0, __( 'Enabled', 'bookly' ) => 1 ) as $text => $mode ) : ?>
-                <option value="<?php echo esc_attr( $mode ) ?>" <?php selected( get_option( 'bookly_gen_final_step_url' ), $mode ) ?> ><?php echo $text ?></option>
-            <?php endforeach ?>
-        </select>
-        <input class="form-control"
-               style="margin-top: 5px; <?php echo get_option( 'bookly_gen_final_step_url' ) == '' ? 'display: none' : '' ?>"
-               type="text" name="bookly_gen_final_step_url"
-               value="<?php form_option( 'bookly_gen_final_step_url' ) ?>"
-               placeholder="<?php esc_attr_e( 'Enter a URL', 'bookly' ) ?>"/>
-    </div>
-    <?php Common::optionToggle( 'bookly_gen_allow_staff_edit_profile', __( 'Allow staff members to edit their profiles', 'bookly' ), __( 'If this option is enabled then all staff members who are associated with WordPress users will be able to edit their own profiles, services, schedule and days off.', 'bookly' ) ) ?>
-    <?php Common::optionToggle( 'bookly_gen_link_assets_method', __( 'Method to include Bookly JavaScript and CSS files on the page', 'bookly' ), __( 'With "Enqueue" method the JavaScript and CSS files of Bookly will be included on all pages of your website. This method should work with all themes. With "Print" method the files will be included only on the pages which contain Bookly booking form. This method may not work with all themes.', 'bookly' ),
-        array( array( 'enqueue', 'Enqueue' ), array( 'print', 'Print' ) ) )
+        Common::optionToggle( 'bookly_gen_use_client_time_zone', __( 'Display available time slots in client\'s time zone', 'bookly' ), __( 'The value is taken from client’s browser.', 'bookly' ) );
+        Common::optionToggle( 'bookly_gen_allow_staff_edit_profile', __( 'Allow staff members to edit their profiles', 'bookly' ), __( 'If this option is enabled then all staff members who are associated with WordPress users will be able to edit their own profiles, services, schedule and days off.', 'bookly' ) );
+        Common::optionToggle( 'bookly_gen_link_assets_method', __( 'Method to include Bookly JavaScript and CSS files on the page', 'bookly' ), __( 'With "Enqueue" method the JavaScript and CSS files of Bookly will be included on all pages of your website. This method should work with all themes. With "Print" method the files will be included only on the pages which contain Bookly booking form. This method may not work with all themes.', 'bookly' ),
+            array( array( 'enqueue', 'Enqueue' ), array( 'print', 'Print' ) ) )
     ?>
     <div class="form-group">
         <label for="bookly_gen_collect_stats"><?php _e( 'Help us improve Bookly by sending anonymous usage stats', 'bookly' ); ?></label>

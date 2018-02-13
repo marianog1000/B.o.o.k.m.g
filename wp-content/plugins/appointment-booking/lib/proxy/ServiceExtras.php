@@ -24,7 +24,7 @@ use Bookly\Lib\Base;
  * @method static \BooklyServiceExtras\Lib\Entities\ServiceExtra[] findAll() Return all extras entities.
  * @see \BooklyServiceExtras\Lib\ProxyProviders\Local::findAll()
  *
- * @method static array getInfo( string $extras_json, bool $translate )
+ * @method static array getInfo( array $extras, bool $translate, string $locale = null )
  * @see \BooklyServiceExtras\Lib\ProxyProviders\Local::getInfo()
  *
  * @method static int getTotalDuration( array $extras )
@@ -33,8 +33,10 @@ use Bookly\Lib\Base;
  * @method static int reorder( array $order )
  * @see \BooklyServiceExtras\Lib\ProxyProviders\Local::reorder()
  *
+ * @method static void renderCustomerDetails() Render extras in customer details dialog
+ * @see \BooklyServiceExtras\Lib\ProxyProviders\Local::renderCustomerDetails()
  */
-class ServiceExtras extends Base\ProxyInvoker
+abstract class ServiceExtras extends Base\ProxyInvoker
 {
 
 }

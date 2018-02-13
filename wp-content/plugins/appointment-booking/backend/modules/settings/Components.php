@@ -27,4 +27,15 @@ class Components extends Lib\Base\Components
             $this->render( '_collect_stats_notice' );
         }
     }
+
+    /**
+     * Render discount and deduction for payment system.
+     *
+     * @param string $system
+     * @throws \Exception
+     */
+    public function renderPaymentCorrection( $system )
+    {
+        $this->render( '_payment_correction', compact( 'system' ) );
+    }
 }

@@ -31,4 +31,5 @@
             <div id="bookly-container-edit-staff" class="col-sm-8"></div>
         </div>
     </div>
+    <?php \Bookly\Backend\Modules\Staff\Components::getInstance()->renderDeleteCascadeDialog() ?>
 </div>

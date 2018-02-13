@@ -1,11 +1,19 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
-    echo $progress_tracker;
+use Bookly\Lib\Config;
+use Bookly\Lib\Proxy;
 ?>
-<div class="bookly-box">
-    <div><?php echo $info_text ?></div>
-    <div class="bookly-holder bookly-label-error bookly-bold"></div>
-</div>
-<?php if ( \Bookly\Lib\Config::showCalendar() ) : ?>
+<?php echo $progress_tracker ?>
+<div class="bookly-box"><?php echo $info_text ?></div>
+<?php Proxy\WaitingList::renderTimeStepInfoText() ?>
+<div class="bookly-box bookly-label-error"></div>
+<?php if ( $has_slots && Config::showTimeZoneSwitcher() ): ?>
+    <div class="bookly-box">
+        <select class="bookly-js-time-zone-switcher bookly-time-zone-switcher">
+            <?php echo $time_zone_options ?>
+        </select>
+    </div>
+<?php endif ?>
+<?php if ( Config::showCalendar() ) : ?>
     <style type="text/css">
         .picker__holder{top: 0;left: 0;}
         .bookly-time-step {margin-left: 0;margin-right: 0;}
@@ -30,7 +38,7 @@
             <span class="ladda-label">&lt;</span>
         </button>
 <?php else : ?>
-    <div class="bookly-not-time-screen<?php if ( ! \Bookly\Lib\Config::showCalendar() ) : ?> bookly-not-calendar<?php endif ?>">
+    <div class="bookly-not-time-screen<?php if ( ! Config::showCalendar() ) : ?> bookly-not-calendar<?php endif ?>">
         <?php _e( 'No time is available for selected criteria.', 'bookly' ) ?>
     </div>
     <div class="bookly-box bookly-nav-steps">

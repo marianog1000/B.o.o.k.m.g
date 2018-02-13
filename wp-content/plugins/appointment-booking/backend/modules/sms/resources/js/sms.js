@@ -2,7 +2,8 @@ jQuery(function($) {
 
     var $form_login    = $('.bookly-login-form'),
         $form_forgot   = $('.bookly-forgot-form'),
-        $form_register = $('.bookly-register-form');
+        $form_register = $('.bookly-register-form'),
+        $custom_notifications = $('#bookly-js-custom-notifications');
 
     booklyAlert(BooklyL10n.alert);
 
@@ -138,6 +139,63 @@ jQuery(function($) {
     /**
      * Notifications Tab.
      */
+    $custom_notifications
+        .on('change', "select[name$='[type]']", function () {
+            var $panel    = $(this).closest('.panel'),
+                $settings = $panel.find('.bookly-js-settings'),
+                value     = $(this).find(':selected').val(),
+                set       = $(this).find(':selected').data('set'),
+                to        = $(this).find(':selected').data('to');
+
+            $panel.find('table.bookly-codes').each(function () {
+                $(this).toggle($(this).hasClass('bookly-js-codes-' + value));
+            });
+
+            $.each(['customer', 'staff', 'admin'], function (index, value) {
+                $panel.find("[name$='[to_" + value + "]']").closest('.checkbox-inline').toggle(to.indexOf(value) != -1);
+            });
+
+            $settings.each(function () {
+                $(this).toggle($(this).hasClass('bookly-js-' + set));
+            });
+
+            switch (set) {
+                case 'after_event':
+                    var $set = $panel.find('.bookly-js-' + set);
+                    $set.find('.bookly-js-to').toggle(value == 'ca_status_changed');
+                    $set.find('.bookly-js-with').toggle(value != 'ca_status_changed');
+                    break;
+            }
+        })
+        .on('click', '.bookly-js-delete', function () {
+            if (confirm(BooklyL10n.are_you_sure)) {
+                var $button = $(this),
+                    id = $button.data('notification_id');
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'bookly_delete_custom_notification',
+                        id: id,
+                        csrf_token: BooklyL10n.csrf_token
+                    },
+                    dataType: 'json',
+                    success: function (response) {
+                        if (response.success) {
+                            $button.closest('.panel').remove();
+                        }
+                    }
+                });
+            }
+        })
+        .find("select[name$='[type]']").trigger('change');
+
+    $('#notifications button[type=reset]').on('click', function () {
+        setTimeout(function () {
+            $("select[name$='[type]']", $custom_notifications).trigger('change');
+        }, 0);
+    });
+
     var $phone_input = $('#admin_phone');
     if (BooklyL10n.intlTelInput.enabled) {
         $phone_input.intlTelInput({
@@ -152,7 +210,7 @@ jQuery(function($) {
             utilsScript: BooklyL10n.intlTelInput.utils
         });
     }
-    $('#js-submit-notifications').on('click', function (e) {
+    $('#bookly-js-submit-notifications').on('click', function (e) {
         e.preventDefault();
         var ladda = Ladda.create(this);
         ladda.start();
@@ -528,6 +586,33 @@ jQuery(function($) {
             }
         });
         $(this).on('click', function () { dt.ajax.reload(); });
+    });
+
+    $("#bookly-js-new-notification").on('click', function () {
+        var ladda = Ladda.create(this);
+        ladda.start();
+        $.ajax({
+            url : ajaxurl,
+            type: 'POST',
+            data: {
+                action    : 'bookly_create_custom_sms',
+                csrf_token: BooklyL10n.csrf_token
+            },
+            dataType: 'json',
+            success: function (response) {
+                if (response.success) {
+                    $custom_notifications.append(response.data.html);
+                    var $subject = $custom_notifications.find('#notification_' + response.data.id + '_subject'),
+                        $panel   = $subject.closest('.panel-collapse');
+                    $panel.collapse('show');
+                    $panel.find("select[name$='[type]']").trigger('change');
+                    $subject.focus();
+                }
+            },
+            complete: function () {
+                ladda.stop();
+            }
+        });
     });
 
     $('#bookly-open-tab-sender-id').on('click', function (e) {

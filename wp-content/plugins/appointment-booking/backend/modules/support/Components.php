@@ -22,7 +22,7 @@ class Components extends Lib\Base\Components
         ) );
 
         $this->enqueueScripts( array(
-            'backend' => array( 'js/alert.js' => array( 'jquery' ), ),
+            'backend'  => array( 'js/alert.js' => array( 'jquery' ), ),
             'frontend' => array(
                 'js/spin.min.js'  => array( 'jquery' ),
                 'js/ladda.min.js' => array( 'jquery' ),
@@ -49,7 +49,7 @@ class Components extends Lib\Base\Components
         wp_localize_script( 'bookly-support.js', 'SupportL10n', array(
             'csrf_token'   => \Bookly\Lib\Utils\Common::getCsrfToken()
         ) );
-        $messages     = Lib\Entities\Message::query( 'm' )->select( 'm.created, m.subject' )->sortBy( 'm.id' )->order( 'DESC' )->limit( 10 )->fetchArray();
+        $messages     = Lib\Entities\Message::query( 'm' )->select( 'm.created, m.subject, m.seen' )->sortBy( 'm.seen, m.message_id' )->order( 'DESC' )->limit( 10 )->fetchArray();
         $messages_new = Lib\Entities\Message::query( 'm' )->where( 'm.seen', '0' )->count();
         $messages_link = Lib\Utils\Common::escAdminUrl( \Bookly\Backend\Modules\Message\Controller::page_slug );
         $this->render( '_buttons', compact( 'doc_link', 'show_contact_us_notice', 'show_feedback_notice', 'current_user', 'messages', 'messages_new', 'messages_link' ) );
@@ -94,7 +94,7 @@ class Components extends Lib\Base\Components
                 if ( time() - Lib\Plugin::getInstallationTime() >= 30 * DAY_IN_SECONDS ) {
                     $this->enqueueStyles( array(
                         'frontend' => array( 'css/ladda.min.css', ),
-                        'module' => array( 'css/bootstrap-stars.css', ),
+                        'module'   => array( 'css/bootstrap-stars.css', ),
                     ) );
                     $this->enqueueScripts( array(
                         'backend' => array(

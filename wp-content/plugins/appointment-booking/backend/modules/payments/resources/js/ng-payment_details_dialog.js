@@ -14,7 +14,7 @@
                     spinner = $body.html();
 
                 element
-                    .on('show.bs.modal', function (e, payment_id) {
+                    .on('show.bs.modal refresh', function (e, payment_id) {
                         if (payment_id === undefined) {
                             payment_id = e.relatedTarget.getAttribute('data-payment_id');
                         }
@@ -35,7 +35,7 @@
                                             type:     'POST',
                                             success:  function (response) {
                                                 if (response.success) {
-                                                    element.trigger('show.bs.modal', [payment_id]);
+                                                    element.trigger('refresh', [payment_id]);
                                                     if (scope.callback) {
                                                         scope.$apply(function ($scope) {
                                                             $scope.callback({
@@ -45,7 +45,45 @@
                                                         });
                                                     }
                                                     // Reload DataTable.
-                                                    var $table = jQuery(e.relatedTarget).closest('table.dataTable');
+                                                    var $table = jQuery('table#bookly-payments-list.dataTable');
+                                                    if ($table.length) {
+                                                        $table.DataTable().ajax.reload();
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    });
+                                    var $adjust_button  = jQuery('#bookly-js-adjustment-button', $body),
+                                        $adjust_field   = jQuery('#bookly-js-adjustment-field', $body),
+                                        $adjust_reason  = jQuery('#bookly-js-adjustment-reason', $body),
+                                        $adjust_amount  = jQuery('#bookly-js-adjustment-amount', $body),
+                                        $adjust_apply   = jQuery('#bookly-js-adjustment-apply', $body),
+                                        $adjust_cancel  = jQuery('#bookly-js-adjustment-cancel', $body);
+                                    $adjust_button.on('click', function () {
+                                        $adjust_field.show();
+                                        $adjust_reason.focus();
+                                    });
+                                    $adjust_cancel.on('click', function () {
+                                        $adjust_field.hide();
+                                    });
+                                    $adjust_apply.on('click', function () {
+                                        $body.html('<div class="bookly-loading"></div>');
+                                        jQuery.ajax({
+                                            url     : ajaxurl,
+                                            data    : {
+                                                action    : 'bookly_add_payment_adjustment',
+                                                payment_id: payment_id,
+                                                reason: $adjust_reason.val(),
+                                                amount: $adjust_amount.val(),
+                                                csrf_token: BooklyL10n.csrf_token
+                                            },
+                                            dataType: 'json',
+                                            type    : 'POST',
+                                            success : function (response) {
+                                                if (response.success) {
+                                                    element.trigger('refresh', [payment_id]);
+                                                    // Reload DataTable.
+                                                    var $table = jQuery('table#bookly-payments-list.dataTable');
                                                     if ($table.length) {
                                                         $table.DataTable().ajax.reload();
                                                     }

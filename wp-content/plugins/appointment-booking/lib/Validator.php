@@ -30,7 +30,7 @@ class Validator
                         ? array( 'phone' => $data['phone'] )
                         : array( 'email' => $data['email'] )
                 );
-                if ( ( ! $customer->isLoaded() || ! $customer->get( 'wp_user_id' ) ) && email_exists( $data['email'] ) ) {
+                if ( ( ! $customer->isLoaded() || ! $customer->getWpUserId() ) && email_exists( $data['email'] ) ) {
                     $this->errors[ $field ] = __( 'This email is already in use', 'bookly' );
                 }
             }
@@ -140,50 +140,14 @@ class Validator
     }
 
     /**
-     * Validate custom fields.
-     *
-     * @param string $value
-     * @param int $form_id
-     * @param int $cart_key
-     */
-    public function validateCustomFields( $value, $form_id, $cart_key )
-    {
-        $decoded_value = json_decode( $value );
-        $fields = array();
-        foreach ( json_decode( get_option( 'bookly_custom_fields' ) ) as $field ) {
-            $fields[ $field->id ] = $field;
-        }
-
-        foreach ( $decoded_value as $field ) {
-            if ( isset( $fields[ $field->id ] ) ) {
-                if ( ( $fields[ $field->id ]->type == 'captcha' ) && ! Captcha\Captcha::validate( $form_id, $field->value ) ) {
-                    $this->errors['custom_fields'][ $cart_key ][ $field->id ] = __( 'Incorrect code', 'bookly' );
-                } elseif ( $fields[ $field->id ]->required && empty ( $field->value ) && $field->value != '0' ) {
-                    $this->errors['custom_fields'][ $cart_key ][ $field->id ] = __( 'Required', 'bookly' );
-                } else {
-                    /**
-                     * Custom field validation for a third party,
-                     * if the value is not valid then please add an error message like in the above example.
-                     *
-                     * @param \stdClass
-                     * @param ref array
-                     * @param string
-                     * @param \stdClass
-                     */
-                    do_action_ref_array( 'bookly_validate_custom_field', array( $field, &$this->errors, $cart_key, $fields[ $field->id ] ) );
-                }
-            }
-        }
-    }
-
-    /**
      * Post-validate customer.
      *
      * @param array $data
+     * @param UserBookingData $bookingData
      */
-    public function postValidateCustomer( $data )
+    public function postValidateCustomer( $data, UserBookingData $bookingData )
     {
-        if ( empty ( $this->errors ) && ! isset ( $data['force_update_customer'] ) ) {
+        if ( empty ( $this->errors ) ) {
             $user_id  = get_current_user_id();
             $customer = new Entities\Customer();
             if ( $user_id > 0 ) {
@@ -199,14 +163,15 @@ class Validator
                     $identifier = Config::phoneRequired() ? 'email' : 'phone';
                     $customer->loadBy( array( 'phone' => '', 'email' => '', $identifier => $data[ $identifier ] ) );
                 }
-                if ( $customer->isLoaded() ) {
+                if ( ! isset ( $data['force_update_customer'] ) && $customer->isLoaded() ) {
                     // Find difference between new and existing data.
                     $diff   = array();
                     $fields = array(
                         'phone'     => Utils\Common::getTranslatedOption( 'bookly_l10n_label_phone' ),
                         'email'     => Utils\Common::getTranslatedOption( 'bookly_l10n_label_email' )
                     );
-                    if ( get_option( 'bookly_cst_first_last_name', 0 ) ) {
+                    $current = $customer->getFields();
+                    if ( Config::showFirstLastName() ) {
                         $fields['first_name'] = Utils\Common::getTranslatedOption( 'bookly_l10n_label_first_name' );
                         $fields['last_name']  = Utils\Common::getTranslatedOption( 'bookly_l10n_label_last_name' );
                     } else {
@@ -215,8 +180,8 @@ class Validator
                     foreach ( $fields as $field => $name ) {
                         if (
                             $data[ $field ] != '' &&
-                            $customer->get( $field ) != '' &&
-                            $data[ $field ] != $customer->get( $field )
+                            $current[ $field ] != '' &&
+                            $data[ $field ] != $current[ $field ]
                         ) {
                             $diff[] = $name;
                         }
@@ -228,6 +193,23 @@ class Validator
                             $data[ $identifier ],
                             implode( ', ', $diff )
                         );
+                    }
+                }
+            }
+            if ( $customer->isLoaded() ) {
+                // Check appointments limit
+                $data = array();
+                foreach ( $bookingData->cart->getItems() as $cart_item ) {
+                    $service = $cart_item->getService();
+                    $slots   = $cart_item->getSlots();
+
+                    $data[ $service->getId() ]['service'] = $service;
+                    $data[ $service->getId() ]['data'][]  = $slots[0][2];
+                }
+                foreach ( $data as $service_data ) {
+                    if ( $service_data['service']->appointmentsLimitReached( $customer->getId(), $service_data['data'] ) ) {
+                        $this->errors['appointments_limit_reached'] = true;
+                        break;
                     }
                 }
             }
@@ -246,7 +228,7 @@ class Validator
             foreach ( $cart_parameters as $parameter => $value ) {
                 switch ( $parameter ) {
                     case 'custom_fields':
-                        $this->validateCustomFields( $value, $form_id, $cart_key );
+                        $this->errors = Proxy\CustomFields::validate( $this->errors, $value, $form_id, $cart_key );
                         break;
                 }
             }

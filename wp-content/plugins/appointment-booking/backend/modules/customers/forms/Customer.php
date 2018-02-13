@@ -18,6 +18,7 @@ class Customer extends Lib\Base\Form
             'full_name',
             'first_name',
             'last_name',
+            'group_id',
             'phone',
             'email',
             'notes',

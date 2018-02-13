@@ -4,7 +4,7 @@
 <form>
     <div class="form-group">
         <label for="bookly-full-name"><?php _e( 'Full name', 'bookly' ) ?></label>
-        <input type="text" class="form-control" id="bookly-full-name" name="full_name" value="<?php echo esc_attr( $staff->get( 'full_name' ) ) ?>"/>
+        <input type="text" class="form-control" id="bookly-full-name" name="full_name" value="<?php echo esc_attr( $staff->getFullName() ) ?>"/>
     </div>
     <?php if ( \Bookly\Lib\Utils\Common::isCurrentUserAdmin() ) : ?>
         <div class="form-group">
@@ -19,7 +19,7 @@
             <select class="form-control" name="wp_user_id" id="bookly-wp-user">
                 <option value=""><?php _e( 'Select from WP users', 'bookly' ) ?></option>
                 <?php foreach ( $users_for_staff as $user ) : ?>
-                    <option value="<?php echo $user->ID ?>" data-email="<?php echo $user->user_email ?>" <?php selected( $user->ID, $staff->get( 'wp_user_id' ) ) ?>><?php echo $user->display_name ?></option>
+                    <option value="<?php echo $user->ID ?>" data-email="<?php echo $user->user_email ?>" <?php selected( $user->ID, $staff->getWpUserId() ) ?>><?php echo $user->display_name ?></option>
                 <?php endforeach ?>
             </select>
         </div>
@@ -30,7 +30,7 @@
             <div class="form-group">
                 <label for="bookly-email"><?php _e( 'Email', 'bookly' ) ?></label>
                 <input class="form-control" id="bookly-email" name="email"
-                       value="<?php echo esc_attr( $staff->get( 'email' ) ) ?>"
+                       value="<?php echo esc_attr( $staff->getEmail() ) ?>"
                        type="text"/>
             </div>
         </div>
@@ -38,7 +38,7 @@
             <div class="form-group">
                 <label for="bookly-phone"><?php _e( 'Phone', 'bookly' ) ?></label>
                 <input class="form-control" id="bookly-phone"
-                       value="<?php echo esc_attr( $staff->get( 'phone' ) ) ?>"
+                       value="<?php echo esc_attr( $staff->getPhone() ) ?>"
                        type="text"/>
             </div>
         </div>
@@ -49,7 +49,7 @@
         <p class="help-block">
             <?php printf( __( 'This text can be inserted into notifications with %s code.', 'bookly' ), '{staff_info}' ) ?>
         </p>
-        <textarea id="bookly-info" name="info" rows="3" class="form-control"><?php echo esc_textarea( $staff->get( 'info' ) ) ?></textarea>
+        <textarea id="bookly-info" name="info" rows="3" class="form-control"><?php echo esc_textarea( $staff->getInfo() ) ?></textarea>
     </div>
 
     <div class="form-group">
@@ -58,8 +58,8 @@
             <?php _e( 'To make staff member invisible to your customers set the visibility to "Private".', 'bookly' ) ?>
         </p>
         <select name="visibility" class="form-control" id="bookly-visibility">
-            <option value="public" <?php selected( $staff->get( 'visibility' ), 'public' ) ?>><?php _e( 'Public', 'bookly' ) ?></option>
-            <option value="private" <?php selected( $staff->get( 'visibility' ), 'private' ) ?>><?php _e( 'Private', 'bookly' ) ?></option>
+            <option value="public" <?php selected( $staff->getVisibility(), 'public' ) ?>><?php _e( 'Public', 'bookly' ) ?></option>
+            <option value="private" <?php selected( $staff->getVisibility(), 'private' ) ?>><?php _e( 'Private', 'bookly' ) ?></option>
         </select>
     </div>
     <?php Bookly\Lib\Proxy\Shared::renderStaffForm( $staff ) ?>
@@ -77,7 +77,7 @@
                     <?php printf( __( 'Please configure Google Calendar <a href="%s">settings</a> first', 'bookly' ), \Bookly\Lib\Utils\Common::escAdminUrl( \Bookly\Backend\Modules\Settings\Controller::page_slug, array( 'tab' => 'google_calendar' ) ) ) ?>
                 <?php endif ?>
             <?php else : ?>
-                <?php _e( 'Connected', 'bookly' ) ?> (<a href="<?php echo \Bookly\Lib\Utils\Common::escAdminUrl( \Bookly\Backend\Modules\Staff\Controller::page_slug, array( 'google_logout' => $staff->get( 'id' ) ) ) ?>"><?php _e( 'disconnect', 'bookly' ) ?></a>)
+                <?php _e( 'Connected', 'bookly' ) ?> (<a href="<?php echo \Bookly\Lib\Utils\Common::escAdminUrl( \Bookly\Backend\Modules\Staff\Controller::page_slug, array( 'google_logout' => $staff->getId() ) ) ?>"><?php _e( 'disconnect', 'bookly' ) ?></a>)
             <?php endif ?>
         </p>
     </div>
@@ -87,7 +87,7 @@
             <select class="form-control" name="google_calendar_id" id="bookly-calendar-id">
                 <?php foreach ( $google_calendars as $id => $calendar ) : ?>
                     <option
-                        <?php selected( $staff->get( 'google_calendar_id' ) == $id || $staff->get( 'google_calendar_id' ) == '' && $calendar['primary'] ) ?>
+                        <?php selected( $staff->getGoogleCalendarId() == $id || $staff->getGoogleCalendarId() == '' && $calendar['primary'] ) ?>
                             value="<?php echo esc_attr( $id ) ?>">
                         <?php echo esc_html( $calendar['summary'] ) ?>
                     </option>
@@ -96,8 +96,8 @@
         </div>
     <?php endif ?>
 
-    <input type="hidden" name="id" value="<?php echo $staff->get( 'id' ) ?>">
-    <input type="hidden" name="attachment_id" value="<?php echo $staff->get( 'attachment_id' ) ?>">
+    <input type="hidden" name="id" value="<?php echo $staff->getId() ?>">
+    <input type="hidden" name="attachment_id" value="<?php echo $staff->getAttachmentId() ?>">
     <?php \Bookly\Lib\Utils\Common::csrf() ?>
 
     <div class="panel-footer">

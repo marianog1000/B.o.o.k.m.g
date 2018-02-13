@@ -1,4 +1,8 @@
-<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly ?>
+<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+use Bookly\Lib\Utils\Common;
+use Bookly\Lib\Config;
+use Bookly\Lib\Proxy;
+?>
 <script type="text/ng-template" id="bookly-customer-dialog.tpl">
 <div id="bookly-customer-dialog" class="modal fade" tabindex=-1 role="dialog">
     <div class="modal-dialog">
@@ -23,7 +27,7 @@
                     </select>
                 </div>
 
-                <?php if (get_option( 'bookly_cst_first_last_name' )) : ?>
+                <?php if ( Config::showFirstLastName() ) : ?>
                     <div class="form-group">
                         <div class="row">
                             <div class="col-sm-6">
@@ -56,6 +60,8 @@
                     <input class="form-control" type="text" ng-model=form.email id="email" />
                 </div>
 
+                <?php Proxy\CustomerGroups::renderCustomerDialogRow() ?>
+
                 <div class="form-group">
                     <label for="notes"><?php _e( 'Notes', 'bookly' ) ?></label>
                     <textarea class="form-control" ng-model=form.notes id="notes"></textarea>
@@ -69,8 +75,8 @@
             </div>
             <div class="modal-footer">
                 <div ng-hide=loading>
-                    <?php \Bookly\Lib\Utils\Common::customButton( null, 'btn-success btn-lg', '', array( 'ng-click' => 'processForm()' ) ) ?>
-                    <?php \Bookly\Lib\Utils\Common::customButton( null, 'btn-default btn-lg', __( 'Cancel', 'bookly' ), array( 'data-dismiss' => 'modal' ) ) ?>
+                    <?php Common::customButton( null, 'btn-success btn-lg', '', array( 'ng-click' => 'processForm()' ) ) ?>
+                    <?php Common::customButton( null, 'btn-default btn-lg', __( 'Cancel', 'bookly' ), array( 'data-dismiss' => 'modal' ) ) ?>
                 </div>
             </div>
         </div>

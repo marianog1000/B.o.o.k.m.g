@@ -31,7 +31,7 @@ class TimePoint implements IPoint
      * Create TimePoint from string.
      *
      * @param string $time  Format H:i[:s]
-     * @return static
+     * @return self
      */
     public static function fromStr( $time )
     {
@@ -129,7 +129,7 @@ class TimePoint implements IPoint
      * Modify point.
      *
      * @param int $value
-     * @return static
+     * @return self
      */
     public function modify( $value )
     {
@@ -153,7 +153,7 @@ class TimePoint implements IPoint
     /**
      * Convert point to WP time zone.
      *
-     * @return static
+     * @return self
      */
     public function toWpTz()
     {
@@ -163,7 +163,7 @@ class TimePoint implements IPoint
     /**
      * Convert point to client time zone.
      *
-     * @return static
+     * @return self
      */
     public function toClientTz()
     {

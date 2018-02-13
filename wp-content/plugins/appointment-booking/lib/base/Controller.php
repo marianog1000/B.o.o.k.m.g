@@ -22,7 +22,6 @@ abstract class Controller extends Components
      */
     public function forward( $action, $check_csrf = true, $check_access = true )
     {
-			
         if ( ( ! $check_csrf || $this->csrfTokenValid( $action ) ) && ( ! $check_access || $this->hasAccess( $action ) ) ) {
             date_default_timezone_set( 'UTC' );
             call_user_func( array( $this, $action ) );
@@ -53,24 +52,26 @@ abstract class Controller extends Components
      */
     protected function registerWpAjaxActions( $with_nopriv = false )
     {
-        $plugin_class = Lib\Base\Plugin::getPluginFor( $this );
+        if ( defined( 'DOING_AJAX' ) ) {
+            $plugin_class = Lib\Base\Plugin::getPluginFor( $this );
 
-        // Prefixes for auto generated add_action() $tag parameter.
-        $prefix = sprintf( 'wp_ajax_%s', $plugin_class::getPrefix() );
-        if ( $with_nopriv ) {
-            $nopriv_prefix = sprintf( 'wp_ajax_nopriv_%s', $plugin_class::getPrefix() );
-        }
+            // Prefixes for auto generated add_action() $tag parameter.
+            $prefix = sprintf( 'wp_ajax_%s', $plugin_class::getPrefix() );
+            if ( $with_nopriv ) {
+                $nopriv_prefix = sprintf( 'wp_ajax_nopriv_%s', $plugin_class::getPrefix() );
+            }
 
-        $_this = $this;
-        foreach ( $this->reflection->getMethods( \ReflectionMethod::IS_PUBLIC ) as $method ) {
-            if ( preg_match( '/^execute(.*)/', $method->name, $match ) ) {
-                $action   = strtolower( preg_replace( '/([a-z])([A-Z])/', '$1_$2', $match[1] ) );
-                $function = function () use ( $_this, $match ) {
-                    $_this->forward( $match[0], true, true );
-                };
-                add_action( $prefix . $action, $function );
-                if ( $with_nopriv ) {
-                    add_action( $nopriv_prefix . $action, $function );
+            $_this = $this;
+            foreach ( $this->reflection->getMethods( \ReflectionMethod::IS_PUBLIC ) as $method ) {
+                if ( preg_match( '/^execute(.*)/', $method->name, $match ) ) {
+                    $action   = strtolower( preg_replace( '/([a-z])([A-Z])/', '$1_$2', $match[1] ) );
+                    $function = function () use ( $_this, $match ) {
+                        $_this->forward( $match[0], true, true );
+                    };
+                    add_action( $prefix . $action, $function );
+                    if ( $with_nopriv ) {
+                        add_action( $nopriv_prefix . $action, $function );
+                    }
                 }
             }
         }
@@ -90,13 +91,7 @@ abstract class Controller extends Components
      */
     protected function hasAccess( $action )
     {
-        $permissions = $this->getPermissions();		
-	
-		// es para que los subscriptores puedan ver las citas 
-		if ($action == 'executeGetAppointments'){
-			$permissions[ $action ]='user';
-		}
-		
+        $permissions = $this->getPermissions();
         $security    = isset ( $permissions[ $action ] ) ? $permissions[ $action ] : null;
 
         if ( is_null( $security ) ) {

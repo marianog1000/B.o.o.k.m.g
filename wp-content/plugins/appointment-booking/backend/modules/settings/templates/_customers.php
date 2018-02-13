@@ -12,6 +12,7 @@ use Bookly\Lib\Utils\Common;
             array( array( 'delete', __( 'Delete', 'bookly' ) ), array( 'cancel', __( 'Cancel', 'bookly' ) ) ) );
         Common::optionToggle( 'bookly_cst_combined_notifications', __( 'Combined notifications', 'bookly' ), __( 'If combined notifications are enabled then your clients will receive single notification for entire booking instead of separate notification per each booked appointment (e.g. when cart is enabled). You will need to edit corresponding templates in Email and SMS Notifications.', 'bookly' ) );
         Common::optionToggle( 'bookly_cst_remember_in_cookie', __( 'Remember personal information in cookies', 'bookly' ), __( 'If this setting is enabled then returning customers will have their personal information fields filled in at the Details step with the data previously saved in cookies.', 'bookly' ) );
+        Common::optionToggle( 'bookly_cst_show_update_details_dialog', __( 'Show confirmation dialog before updating customer\'s data', 'bookly' ), __( 'If this option is enabled and customer enters contact info different from the previous order, a warning message will appear asking to update the data.', 'bookly' ) );
     ?>
     <div class="panel-footer">
         <?php Common::csrf() ?>

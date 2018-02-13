@@ -11,19 +11,13 @@ class StaffServices extends Lib\Base\Form
 {
     protected static $entity_class = 'StaffService';
 
-    /**
-     * @var Lib\Entities\Category[]
-     */
+    /** @var Lib\Entities\Category[] */
     private $categories = array();
 
-    /**
-     * @var array
-     */
+    /** @var array */
     private $services_data = array();
 
-    /**
-     * @var array
-     */
+    /** @var array */
     private $uncategorized_services = array();
 
     public function configure()
@@ -43,7 +37,10 @@ class StaffServices extends Lib\Base\Form
             $data = array();
         }
 
-        $this->uncategorized_services = Lib\Entities\Service::query( 's' )->where( 's.category_id', null )->whereIn( 's.type', array( Lib\Entities\Service::TYPE_SIMPLE, Lib\Entities\Service::TYPE_PACKAGE ) )->fetchArray();
+        $this->uncategorized_services = Lib\Entities\Service::query( 's' )
+            ->where( 's.category_id', null )
+            ->whereIn( 's.type', array( Lib\Entities\Service::TYPE_SIMPLE, Lib\Entities\Service::TYPE_PACKAGE ) )
+            ->find();
 
         $staff_services = Lib\Entities\StaffService::query( 'ss' )
             ->select( 'ss.service_id, ss.price, ss.deposit, ss.capacity_min, ss.capacity_max' )
@@ -77,12 +74,12 @@ class StaffServices extends Lib\Base\Form
                 foreach ( $this->data['service'] as $service_id ) {
                     $staff_service = new Lib\Entities\StaffService();
                     $staff_service
-                        ->set( 'capacity_min', $this->data['capacity_min'][ $service_id ] )
-                        ->set( 'capacity_max', $this->data['capacity_max'][ $service_id ] )
-                        ->set( 'deposit',      empty ( $this->data['deposit'] ) ? '100%' : $this->data['deposit'][ $service_id ] )
-                        ->set( 'price',        $this->data['price'][ $service_id ] )
-                        ->set( 'service_id',   $service_id )
-                        ->set( 'staff_id',     $staff_id )
+                        ->setCapacityMin( $this->data['capacity_min'][ $service_id ] )
+                        ->setCapacityMax( $this->data['capacity_max'][ $service_id ] )
+                        ->setDeposit( isset ( $this->data['deposit'] ) ? $this->data['deposit'][ $service_id ] : '100%' )
+                        ->setPrice( $this->data['price'][ $service_id ] )
+                        ->setServiceId( $service_id )
+                        ->setStaffId( $staff_id )
                         ->save();
                 }
             }
@@ -106,7 +103,7 @@ class StaffServices extends Lib\Base\Form
     }
 
     /**
-     * @return array
+     * @return Lib\Entities\Service[]
      */
     public function getUncategorizedServices()
     {

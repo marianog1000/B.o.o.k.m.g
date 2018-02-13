@@ -27,10 +27,11 @@ class Controller extends Lib\Base\Controller
             $userData = new Lib\UserBookingData( $form_id );
 
             if ( $userData->load() ) {
-                list ( $total, $deposit ) = $userData->cart->getInfo();
+                list ( , $pay ) = Lib\Proxy\Shared::applyGatewayPriceCorrection( $userData->cart->getInfo(), Lib\Entities\Payment::TYPE_PAYPAL );
+
                 $product = new \stdClass();
                 $product->name  = $userData->cart->getItemsTitle( 126 );
-                $product->price = $deposit;
+                $product->price = $pay;
                 $product->qty   = 1;
                 $paypal->addProduct( $product );
 
@@ -54,8 +55,9 @@ class Controller extends Lib\Base\Controller
             $data = array( 'TOKEN' => $token );
             // Send the request to PayPal.
             $response = $PayPal->sendNvpRequest( 'GetExpressCheckoutDetails', $data );
-
-            if ( strtoupper( $response['ACK'] ) == 'SUCCESS' ) {
+            if ( $response == null ) {
+                $error_message = $PayPal->getError();
+            } elseif ( strtoupper( $response['ACK'] ) == 'SUCCESS' ) {
                 $data['PAYERID'] = $this->getParameter( 'PayerID' );
                 $data['PAYMENTREQUEST_0_PAYMENTACTION'] = 'Sale';
 
@@ -67,13 +69,19 @@ class Controller extends Lib\Base\Controller
 
                 // We need to execute the "DoExpressCheckoutPayment" at this point to Receive payment from user.
                 $response = $PayPal->sendNvpRequest( 'DoExpressCheckoutPayment', $data );
-                if ( 'SUCCESS' == strtoupper( $response['ACK'] ) || 'SUCCESSWITHWARNING' == strtoupper( $response['ACK'] ) ) {
+                if ( $response === null ) {
+                    $error_message = $PayPal->getError();
+                } elseif ( 'SUCCESS' == strtoupper( $response['ACK'] ) || 'SUCCESSWITHWARNING' == strtoupper( $response['ACK'] ) ) {
                     // Get transaction info
                     $response = $PayPal->sendNvpRequest( 'GetTransactionDetails', array( 'TRANSACTIONID' => $response['PAYMENTINFO_0_TRANSACTIONID'] ) );
-                    if ( 'SUCCESS' == strtoupper( $response['ACK'] ) || 'SUCCESSWITHWARNING' == strtoupper( $response['ACK'] ) ) {
+                    if ( $response === null ) {
+                        $error_message = $PayPal->getError();
+                    } elseif ( 'SUCCESS' == strtoupper( $response['ACK'] ) || 'SUCCESSWITHWARNING' == strtoupper( $response['ACK'] ) ) {
                         $userData = new Lib\UserBookingData( $form_id );
                         $userData->load();
-                        list ( $total, $deposit ) = $userData->cart->getInfo();
+                        $cart_info = $userData->cart->getInfo();
+                        list ( $total, $pay ) = Lib\Proxy\Shared::applyGatewayPriceCorrection( $cart_info, Lib\Entities\Payment::TYPE_PAYPAL );
+
                         $coupon = $userData->getCoupon();
                         if ( $coupon ) {
                             $coupon->claim();
@@ -81,16 +89,17 @@ class Controller extends Lib\Base\Controller
                         }
                         $payment = new Lib\Entities\Payment();
                         $payment
-                            ->set( 'type',      Lib\Entities\Payment::TYPE_PAYPAL )
-                            ->set( 'status',    Lib\Entities\Payment::STATUS_COMPLETED )
-                            ->set( 'total',     $total )
-                            ->set( 'paid',      $deposit )
-                            ->set( 'paid_type', $total == $deposit ? Lib\Entities\Payment::PAY_IN_FULL : Lib\Entities\Payment::PAY_DEPOSIT )
-                            ->set( 'created',   current_time( 'mysql' ) )
+                            ->setType( Lib\Entities\Payment::TYPE_PAYPAL )
+                            ->setStatus( Lib\Entities\Payment::STATUS_COMPLETED )
+                            ->setTotal( $total )
+                            ->setPaid( $pay )
+                            ->setGatewayPriceCorrection( $pay - $cart_info[1] )
+                            ->setPaidType( $total == $pay ? Lib\Entities\Payment::PAY_IN_FULL : Lib\Entities\Payment::PAY_DEPOSIT )
+                            ->setCreated( current_time( 'mysql' ) )
                             ->save();
-                        $ca_list = $userData->save( $payment->get( 'id' ) );
-                        Lib\NotificationSender::sendFromCart( $ca_list );
-                        $payment->setDetails( $ca_list, $coupon )->save();
+                        $order = $userData->save( $payment );
+                        Lib\NotificationSender::sendFromCart( $order );
+                        $payment->setDetailsFromOrder( $order, $coupon )->save();
                         $userData->setPaymentStatus( Lib\Entities\Payment::TYPE_PAYPAL, 'success' );
 
                         @wp_redirect( remove_query_arg( Lib\Payment\PayPal::$remove_parameters, Lib\Utils\Common::getCurrentPageURL() ) );

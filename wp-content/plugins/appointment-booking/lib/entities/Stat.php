@@ -9,6 +9,13 @@ use Bookly\Lib;
  */
 class Stat extends Lib\Base\Entity
 {
+    /** @var  string */
+    protected $name;
+    /** @var  string */
+    protected $value;
+    /** @var  string */
+    protected $created;
+
     protected static $table = 'ab_stats';
 
     protected static $schema = array(
@@ -17,8 +24,6 @@ class Stat extends Lib\Base\Entity
         'value'    => array( 'format' => '%s' ),
         'created'  => array( 'format' => '%s' ),
     );
-
-    protected static $cache = array();
 
     /**
      * @param string $variable
@@ -37,8 +42,82 @@ class Stat extends Lib\Base\Entity
                 $stat->setFields( $parameters );
             }
             $stat
-                ->set( 'value', ( (int) $stat->get( 'value' ) ) + $affected )
+                ->setValue( ( (int) $stat->getValue() ) + $affected )
                 ->save();
         }
     }
+
+    /**************************************************************************
+     * Entity Fields Getters & Setters                                        *
+     **************************************************************************/
+
+    /**
+     * Gets name
+     *
+     * @return string
+     */
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    /**
+     * Sets name
+     *
+     * @param string $name
+     * @return $this
+     */
+    public function setName( $name )
+    {
+        $this->name = $name;
+
+        return $this;
+    }
+
+    /**
+     * Gets value
+     *
+     * @return string
+     */
+    public function getValue()
+    {
+        return $this->value;
+    }
+
+    /**
+     * Sets value
+     *
+     * @param string $value
+     * @return $this
+     */
+    public function setValue( $value )
+    {
+        $this->value = $value;
+
+        return $this;
+    }
+
+    /**
+     * Gets created
+     *
+     * @return string
+     */
+    public function getCreated()
+    {
+        return $this->created;
+    }
+
+    /**
+     * Sets created
+     *
+     * @param string $created
+     * @return $this
+     */
+    public function setCreated( $created )
+    {
+        $this->created = $created;
+
+        return $this;
+    }
+
 }

@@ -103,7 +103,7 @@ abstract class Plugin
     public static function run()
     {
         static::registerHooks();
-        if( ! static::embedded() ) {
+        if ( ! static::embedded() ) {
             static::initUpdateChecker();
         }
         // Run updates.
@@ -457,7 +457,6 @@ abstract class Plugin
         $plugin_class = get_called_class();
 
         if ( $plugin_class::embedded() ) {
-            add_action( 'activate_' . Lib\Plugin::getBasename(),   array( $plugin_class, 'activate' ), 99, 1 );
             add_action( 'deactivate_' . Lib\Plugin::getBasename(), array( $plugin_class, 'deactivate' ), 99, 1 );
         } else {
             register_activation_hook( static::getMainFile(),   array( $plugin_class, 'activate' ) );
@@ -484,11 +483,17 @@ abstract class Plugin
                     $purchase_code = $plugin_class::getPurchaseCode( $blog_id );
 
                     printf(
-                        '<div class="form-group"><label for="%2$s">%1$s %3$s:</label><input id="%2$s" class="purchase-code form-control" type="text" name="purchase_code[%2$s]" value="%4$s" /></div>',
+                        '<div class="form-group"><label for="%2$s">%1$s %3$s:</label>%5$s<input id="%2$s" class="purchase-code form-control" type="text" name="purchase_code[%2$s]" value="%4$s" /></div>',
                         $plugin_class::getTitle(),
                         $plugin_class::getPurchaseCodeOption(),
                         __( 'Purchase Code', 'bookly' ),
-                        $purchase_code
+                        $purchase_code,
+                        $purchase_code != ''
+                            ? sprintf( '<p class="help-block">%s</p>', sprintf(
+                                __( '<a class="%s" href="#">Click here</a> to dissociate this purchase code from the current domain (use to move the plugin to another site).', 'bookly' ),
+                                'bookly-js-detach-pc'
+                            ) )
+                            : ''
                     );
                 }, 1, 1 );
             }
@@ -518,10 +523,6 @@ abstract class Plugin
 
                 return $errors;
             } , 10, 3 );
-        }
-        // For admin notices about SMS weekly summary and etc.
-        if ( ! wp_next_scheduled( 'bookly_daily_routine' ) ) {
-            wp_schedule_event( time(), 'daily', 'bookly_daily_routine' );
         }
     }
 

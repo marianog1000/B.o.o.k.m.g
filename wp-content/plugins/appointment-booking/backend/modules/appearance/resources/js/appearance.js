@@ -14,8 +14,8 @@ jQuery(function($) {
         $time_step_calendar_wrap        = $('.bookly-js-slot-calendar'),
         $show_blocked_timeslots         = $('#bookly-show-blocked-timeslots'),
         $show_day_one_column            = $('#bookly-show-day-one-column'),
+        $show_time_zone_switcher        = $('#bookly-show-time-zone-switcher'),
         $show_calendar                  = $('#bookly-show-calendar'),
-        $show_login_button              = $('#bookly-show-login-button'),
         $day_one_column                 = $('#bookly-day-one-column'),
         $day_multi_columns              = $('#bookly-day-multi-columns'),
         // Step repeat.
@@ -28,7 +28,9 @@ jQuery(function($) {
         $repeat_monthly_week_day        = $('.bookly-js-monthly-week-day'),
         // Step details.
         $required_phone                 = $('#bookly-cst-required-phone'),
+        $show_login_button              = $('#bookly-show-login-button'),
         $first_last_name                = $('#bookly-cst-first-last-name'),
+        $show_notes_field               = $('#bookly-show-notes'),
         // Buttons.
         $save_button                    = $('#ajax-send-appearance'),
         $reset_button                   = $('button[type=reset]'),
@@ -122,6 +124,7 @@ jQuery(function($) {
             case '#bookly-step-3': $step_settings.find('.bookly-js-time-settings').show(); break;
             case '#bookly-step-6': $step_settings.find('.bookly-js-details-settings').show(); break;
             case '#bookly-step-7': $step_settings.find('.bookly-js-payment-settings').show(); break;
+            case '#bookly-step-8': $step_settings.find('.bookly-js-done-settings').show(); break;
         }
     });
 
@@ -243,9 +246,9 @@ jQuery(function($) {
         }
     });
 
-    // Show login form.
-    $show_login_button.change(function () {
-        $('#bookly-js-show-login-form').toggle(this.checked);
+    // Show time zone switcher
+    $show_time_zone_switcher.on('change', function() {
+        $('.bookly-js-time-zone-switcher').toggle(this.checked);
     }).trigger('change');
 
     /**
@@ -306,6 +309,11 @@ jQuery(function($) {
         });
     }
 
+    // Show login form.
+    $show_login_button.change(function () {
+        $('#bookly-js-show-login-form').toggle(this.checked);
+    }).trigger('change');
+
     // Show first and last name.
     $first_last_name.on('change', function () {
         $first_last_name.popover('toggle');
@@ -317,6 +325,11 @@ jQuery(function($) {
             $('.bookly-details-first-last-name').css('display', 'none');
         }
     });
+
+    // Show notes field.
+    $show_notes_field.change(function () {
+        $('#bookly-js-notes').toggle(this.checked);
+    }).trigger('change');
 
     /**
      * Step Payment.
@@ -331,6 +344,17 @@ jQuery(function($) {
     // Show credit card form.
     $('.bookly-payment-nav :radio').on('change', function () {
         $('form.bookly-card-form').toggle(this.id == 'bookly-card-payment');
+    });
+
+    /**
+     * Step Done.
+     */
+
+    // Switch done step view (success/error).
+    $('#bookly-done-step-view').on('change', function () {
+        $('.bookly-js-done-success').toggle(this.value == 'booking-success');
+        $('.bookly-js-done-limit-error').toggle(this.value == 'booking-limit-error');
+        $('.bookly-js-done-processing').toggle(this.value == 'booking-processing');
     });
 
 
@@ -411,7 +435,9 @@ jQuery(function($) {
                 'bookly_app_show_blocked_timeslots'     : Number($show_blocked_timeslots.prop('checked')),
                 'bookly_app_show_calendar'              : Number($show_calendar.prop('checked')),
                 'bookly_app_show_day_one_column'        : Number($show_day_one_column.prop('checked')),
+                'bookly_app_show_time_zone_switcher'    : Number($show_time_zone_switcher.prop('checked')),
                 'bookly_app_show_login_button'          : Number($show_login_button.prop('checked')),
+                'bookly_app_show_notes'                 : Number($show_notes_field.prop('checked')),
                 'bookly_app_show_progress_tracker'      : Number($show_progress_tracker.prop('checked')),
                 'bookly_app_staff_name_with_price'      : Number($staff_name_with_price.prop('checked')),
                 'bookly_app_required_employee'          : Number($required_employee.prop('checked')),

@@ -84,16 +84,20 @@ jQuery(function ($) {
                     staff_id,
                     date,
                     function (event) {
-                        if (visible_staff_id == event.staffId || visible_staff_id == 0) {
-                            if (event.id) {
-                                // Create event in calendar.
-                                $container.fullCalendar('renderEvent', event);
-                            } else {
-                                $container.fullCalendar('refetchEvents');
-                            }
+                        if (event == 'refresh') {
+                            $container.fullCalendar('refetchEvents');
                         } else {
-                            // Switch to the event owner tab.
-                            jQuery('li[data-staff_id=' + event.staffId + ']').click();
+                            if (visible_staff_id == event.staffId || visible_staff_id == 0) {
+                                if (event.id) {
+                                    // Create event in calendar.
+                                    $container.fullCalendar('renderEvent', event);
+                                } else {
+                                    $container.fullCalendar('refetchEvents');
+                                }
+                            } else {
+                                // Switch to the event owner tab.
+                                jQuery('li[data-staff_id=' + event.staffId + ']').click();
+                            }
                         }
                     }
                 );
@@ -122,8 +126,22 @@ jQuery(function ($) {
                     }
                     if (obj.options.l10n.waiting_list.active == '1' && calEvent.waitlisted > 0) {
                         $time.prepend(
-                            $('<span class="bookly-fc-icon glyphicon glyphicon-hourglass" style="font-size:15px;padding:1px 2px;"></span>')
+                            $('<span class="bookly-fc-icon dashicons dashicons-list-view"></span>')
                                 .attr('title', obj.options.l10n.waiting_list.title)
+                        );
+                    }
+                    if (obj.options.l10n.packages.active == '1' && calEvent.package_id > 0) {
+                        $time.prepend(
+                            $('<span class="bookly-fc-icon dashicons dashicons-calendar" style="padding:0 2px;"></span>')
+                                .attr('title', obj.options.l10n.packages.title)
+                                .on('click', function (e) {
+                                    e.stopPropagation();
+                                    if (obj.options.l10n.packages.active == '1' && calEvent.package_id) {
+                                        $(document.body).trigger('bookly_packages.schedule_dialog', [calEvent.package_id, function () {
+                                            $container.fullCalendar('refetchEvents');
+                                        }]);
+                                    }
+                                })
                         );
                     }
                     $time.prepend(
@@ -154,13 +172,17 @@ jQuery(function ($) {
                     null,
                     null,
                     function (event) {
-                        if (visible_staff_id == event.staffId || visible_staff_id == 0) {
-                            // Update event in calendar.
-                            jQuery.extend(calEvent, event);
-                            $container.fullCalendar('updateEvent', calEvent);
+                        if (event == 'refresh') {
+                            $container.fullCalendar('refetchEvents');
                         } else {
-                            // Switch to the event owner tab.
-                            jQuery('li[data-staff_id=' + event.staffId + ']').click();
+                            if (visible_staff_id == event.staffId || visible_staff_id == 0) {
+                                // Update event in calendar.
+                                jQuery.extend(calEvent, event);
+                                $container.fullCalendar('updateEvent', calEvent);
+                            } else {
+                                // Switch to the event owner tab.
+                                jQuery('li[data-staff_id=' + event.staffId + ']').click();
+                            }
                         }
                     }
                 );
@@ -186,10 +208,10 @@ jQuery(function ($) {
 
         // Init date picker for fast navigation in FullCalendar.
         $fcDatePicker.datepicker({
-            dayNamesMin:     obj.options.l10n.dayNamesShort,
-            monthNames:      obj.options.l10n.monthNames,
-            monthNamesShort: obj.options.l10n.monthNamesShort,
-            firstDay:        obj.options.l10n.startOfWeek,
+            dayNamesMin:     settings.dayNamesShort,
+            monthNames:      settings.monthNames,
+            monthNamesShort: settings.monthNamesShort,
+            firstDay:        settings.firstDay,
             beforeShow: function (input, inst) {
                 inst.dpDiv.queue(function () {
                     inst.dpDiv.css({marginTop: '35px', 'font-size': '13.5px'});
@@ -216,7 +238,9 @@ jQuery(function ($) {
         /**
          * On delete appointment click.
          */
-        if (obj.$deleteDialog.data('events') == undefined) {
+        if (obj.$deleteDialog.data('events') == undefined
+            || obj.$deleteDialog.data('events').click == undefined)
+        {
             obj.$deleteDialog.on('click', '#bookly-delete', function (e) {
                 var calEvent = obj.$deleteDialog.data('calEvent'),
                     ladda = Ladda.create(this);

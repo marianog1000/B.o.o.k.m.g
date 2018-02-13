@@ -44,8 +44,8 @@ class BusinessHours extends Lib\Base\Form
     public function renderField( $field_name = 'bookly_bh_monday', $is_start = true )
     {
         $ts_length      = Lib\Config::getTimeSlotLength();
-        $time_output    = Lib\Entities\StaffScheduleItem::WORKING_START_TIME;
-        $time_end       = Lib\Entities\StaffScheduleItem::WORKING_END_TIME;
+        $time_output    = 0;
+        $time_end       = DAY_IN_SECONDS;
         $option_name    = $field_name . ( $is_start ? '_start' : '_end' );
         $class_name     = $is_start ? 'select_start' : 'select_end bookly-hide-on-off';
         $selected_value = get_option( $option_name );

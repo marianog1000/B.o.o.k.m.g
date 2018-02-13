@@ -198,6 +198,9 @@ abstract class Components
                     $path = Lib\Plugin::getDirectory() . '/path';
                     $assets_version = Lib\Plugin::getVersion();
                     break;
+                case 'addon':
+                    $path = $plugin_class::getDirectory() . '/path';
+                    break;
                 default:
                     $path = $source . '/path';
             }

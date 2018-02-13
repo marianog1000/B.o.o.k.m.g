@@ -34,6 +34,7 @@ class Controller extends Lib\Base\Controller
                 'js/datatables.min.js'  => array( 'jquery' ),
                 'js/moment.min.js',
                 'js/daterangepicker.js' => array( 'jquery' ),
+                'js/help.js'  => array( 'jquery' ),
                 'js/alert.js' => array( 'jquery' ),
             ),
             'frontend' => array_merge(
@@ -92,6 +93,7 @@ class Controller extends Lib\Base\Controller
             }
             if ( $this->hasParameter( 'form-notifications' ) ) {
                 update_option( 'bookly_sms_administrator_phone', $this->getParameter( 'bookly_sms_administrator_phone' ) );
+                update_option( 'bookly_ntf_processing_interval', (int) $this->getParameter( 'bookly_ntf_processing_interval' ) );
 
                 $form->bind( $this->getPostParameters() );
                 $form->save();
@@ -161,8 +163,11 @@ class Controller extends Lib\Base\Controller
             )
         );
         $cron_uri = plugins_url( 'lib/utils/send_notifications_cron.php', Lib\Plugin::getMainFile() );
-
-        $this->render( 'index', compact( 'form', 'sms', 'is_logged_in', 'prices', 'cron_uri', 'cron_reminder' ) );
+        $statuses = Lib\Entities\CustomerAppointment::getStatuses();
+        foreach ( range( 1, 23 ) as $hours ) {
+            $bookly_ntf_processing_interval_values[] = array( $hours, Lib\Utils\DateTime::secondsToInterval( $hours * HOUR_IN_SECONDS ) );
+        }
+        $this->render( 'index', compact( 'form', 'sms', 'is_logged_in', 'prices', 'cron_uri', 'cron_reminder', 'statuses', 'bookly_ntf_processing_interval_values' ) );
     }
 
     public function executeGetPurchasesList()
@@ -327,4 +332,29 @@ class Controller extends Lib\Base\Controller
         }
         wp_send_json_success();
     }
+
+    /**
+     * Create new custom sms notification
+     */
+    public function executeCreateCustomSms()
+    {
+        $notification = new Lib\Entities\Notification();
+        $notification
+            ->setType( Lib\Entities\Notification::TYPE_APPOINTMENT_START_TIME )
+            ->setToCustomer( 1 )
+            ->setToStaff( 1 )
+            ->setSettings( json_encode( Lib\DataHolders\Notification\Settings::getDefault() ) )
+            ->setGateway( 'sms' )
+            ->save();
+
+        $notification = $notification->getFields();
+        $id           = $notification['id'];
+
+        $form = new \Bookly\Backend\Modules\Notifications\Forms\Notifications( 'sms' );
+        $statuses = Lib\Entities\CustomerAppointment::getStatuses();
+
+        $html = $this->render( '_custom_notification', compact( 'form', 'notification', 'statuses' ), false );
+        wp_send_json_success( compact( 'html', 'id' ) );
+    }
+
 }

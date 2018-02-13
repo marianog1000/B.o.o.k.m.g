@@ -13,6 +13,9 @@
                     <li class="bookly-nav-item" data-target="#bookly_settings_general" data-toggle="tab">
                         <?php _e( 'General', 'bookly' ) ?>
                     </li>
+                    <li class="bookly-nav-item" data-target="#bookly_settings_url" data-toggle="tab">
+                        <?php _e( 'URL Settings', 'bookly' ) ?>
+                    </li>
                     <li class="bookly-nav-item" data-target="#bookly_settings_calendar" data-toggle="tab">
                         <?php _e( 'Calendar', 'bookly' ) ?>
                     </li>
@@ -53,6 +56,9 @@
                         <div class="tab-content">
                             <div class="tab-pane active" id="bookly_settings_general">
                                 <?php include '_generalForm.php' ?>
+                            </div>
+                            <div class="tab-pane" id="bookly_settings_url">
+                                <?php include '_urlForm.php' ?>
                             </div>
                             <div class="tab-pane active" id="bookly_settings_calendar">
                                 <?php include '_calendarForm.php' ?>

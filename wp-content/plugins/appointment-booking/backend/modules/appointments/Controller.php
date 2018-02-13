@@ -2,6 +2,7 @@
 namespace Bookly\Backend\Modules\Appointments;
 
 use Bookly\Lib;
+use Bookly\Lib\DataHolders\Booking as DataHolders;
 
 /**
  * Class Controller
@@ -19,6 +20,7 @@ class Controller extends Lib\Base\Controller
         $this->enqueueStyles( array(
             'frontend' => array( 'css/ladda.min.css', ),
             'backend'  => array(
+                'css/select2.min.css',
                 'bootstrap/css/bootstrap-theme.min.css',
                 'css/daterangepicker.css',
             ),
@@ -27,9 +29,10 @@ class Controller extends Lib\Base\Controller
         $this->enqueueScripts( array(
             'backend'  => array(
                 'bootstrap/js/bootstrap.min.js' => array( 'jquery' ),
-                'js/datatables.min.js'  => array( 'jquery' ),
+                'js/datatables.min.js'   => array( 'jquery' ),
                 'js/moment.min.js',
-                'js/daterangepicker.js' => array( 'jquery' ),
+                'js/daterangepicker.js'  => array( 'jquery' ),
+                'js/select2.full.min.js' => array( 'jquery' ),
             ),
             'frontend' => array(
                 'js/spin.min.js'  => array( 'jquery' ),
@@ -38,10 +41,14 @@ class Controller extends Lib\Base\Controller
             'module'   => array( 'js/appointments.js' => array( 'bookly-datatables.min.js' ), ),
         ) );
 
-        // Custom fields without captcha field.
-        $custom_fields = array_filter( json_decode( get_option( 'bookly_custom_fields' ) ), function( $field ) {
-            return ! in_array( $field->type, array( 'captcha', 'text-content' ) );
-        } );
+        // Custom fields without captcha, text content field & file.
+        $custom_fields = $cf_columns = array();
+        foreach ( (array) Lib\Proxy\CustomFields::getWhichHaveData() as $cf ) {
+            if ( $cf->type != 'file' ) {
+                $cf_columns[]    = $cf->id;
+                $custom_fields[] = $cf;
+            }
+        }
 
         wp_localize_script( 'bookly-appointments.js', 'BooklyL10n', array(
             'csrf_token'    => Lib\Utils\Common::getCsrfToken(),
@@ -69,14 +76,19 @@ class Controller extends Lib\Base\Controller
             'zeroRecords'   => __( 'No appointments for selected period.', 'bookly' ),
             'processing'    => __( 'Processing...', 'bookly' ),
             'edit'          => __( 'Edit', 'bookly' ),
-            'cf_columns'    => array_map( function ( $custom_field ) { return $custom_field->id; }, $custom_fields ),
+            'add_columns'   => array( 'notes' => Lib\Config::showNotes(), 'attachments' => Lib\Config::filesActive(), ),
+            'cf_columns'    => $cf_columns,
             'filter'        => (array) get_user_meta( get_current_user_id(), 'bookly_filter_appointments_list', true ),
+            'no_result_found' => __( 'No result found', 'bookly' ),
+            'attachments'   =>  __( 'Attachments', 'bookly' )
         ) );
 
         // Filters data
         $staff_members = Lib\Entities\Staff::query( 's' )->select( 's.id, s.full_name' )->fetchArray();
         $customers = Lib\Entities\Customer::query( 'c' )->select( 'c.id, c.full_name, c.first_name, c.last_name' )->fetchArray();
         $services  = Lib\Entities\Service::query( 's' )->select( 's.id, s.title' )->where( 'type', Lib\Entities\Service::TYPE_SIMPLE )->fetchArray();
+
+        Lib\Proxy\Shared::enqueueAssetsForAppointmentForm();
 
         $this->render( 'index', compact( 'custom_fields', 'staff_members', 'customers', 'services' ) );
     }
@@ -96,20 +108,20 @@ class Controller extends Lib\Base\Controller
                 ca.payment_id,
                 ca.status,
                 ca.id        AS ca_id,
+                ca.notes,
                 ca.extras,
                 a.start_date,
                 a.staff_any,
-                a.extras_duration,
-                c.full_name  AS customer_name,
+                c.full_name  AS customer_full_name,
                 c.phone      AS customer_phone,
                 c.email      AS customer_email,
-                s.title      AS service_title,
-                s.duration   AS service_duration,
                 st.full_name AS staff_name,
                 p.paid       AS payment,
                 p.total      AS payment_total,
                 p.type       AS payment_type,
-                p.status     AS payment_status' )
+                p.status     AS payment_status,
+                COALESCE(s.title, a.custom_service_name) AS service_title,
+                TIME_TO_SEC(TIMEDIFF(a.end_date, a.start_date)) + a.extras_duration AS service_duration' )
             ->leftJoin( 'Appointment', 'a', 'a.id = ca.appointment_id' )
             ->leftJoin( 'Service', 's', 's.id = a.service_id' )
             ->leftJoin( 'Customer', 'c', 'c.id = ca.customer_id' )
@@ -119,6 +131,12 @@ class Controller extends Lib\Base\Controller
 
         $total = $query->count();
 
+        $sub_query = Lib\Proxy\Files::getSubQueryAttachmentExists();
+        if ( ! $sub_query ) {
+            $sub_query = '0';
+        }
+        $query->addSelect( '(' . $sub_query . ') AS attachment' );
+
         if ( $filter['id'] != '' ) {
             $query->where( 'a.id', $filter['id'] );
         }
@@ -127,19 +145,19 @@ class Controller extends Lib\Base\Controller
         $end = date( 'Y-m-d', strtotime( '+1 day', strtotime( $end ) ) );
         $query->whereBetween( 'a.start_date', $start, $end );
 
-        if ( $filter['staff'] != -1 ) {
+        if ( $filter['staff'] != '' ) {
             $query->where( 'a.staff_id', $filter['staff'] );
         }
 
-        if ( $filter['customer'] != -1 ) {
+        if ( $filter['customer'] != '' ) {
             $query->where( 'ca.customer_id', $filter['customer'] );
         }
 
-        if ( $filter['service']  != -1 ) {
-            $query->where( 'a.service_id', $filter['service'] );
+        if ( $filter['service'] != '' ) {
+            $query->where( 'a.service_id', $filter['service'] ?: null );
         }
 
-        if ( $filter['status'] != -1 ) {
+        if ( $filter['status'] != '' ) {
             $query->where( 'ca.status', $filter['status'] );
         }
 
@@ -149,9 +167,7 @@ class Controller extends Lib\Base\Controller
         }
 
         $custom_fields = array();
-        $fields_data = array_filter( json_decode( get_option( 'bookly_custom_fields' ) ), function( $field ) {
-            return ! in_array( $field->type, array( 'captcha', 'text-content' ) );
-        } );
+        $fields_data = (array) Lib\Proxy\CustomFields::getWhichHaveData();
         foreach ( $fields_data as $field_data ) {
             $custom_fields[ $field_data->id ] = '';
         }
@@ -160,12 +176,8 @@ class Controller extends Lib\Base\Controller
         foreach ( $query->fetchArray() as $row ) {
             // Service duration.
             $service_duration = Lib\Utils\DateTime::secondsToInterval( $row['service_duration'] );
-            if ( $row['extras_duration'] > 0 ) {
-                $service_duration .= ' + ' . Lib\Utils\DateTime::secondsToInterval( $row['extras_duration'] );
-            }
             // Appointment status.
             $row['status'] = Lib\Entities\CustomerAppointment::statusToString( $row['status'] );
-
             // Payment title.
             $payment_title = '';
             if ( $row['payment'] !== null ) {
@@ -183,7 +195,7 @@ class Controller extends Lib\Base\Controller
             // Custom fields
             $customer_appointment = new Lib\Entities\CustomerAppointment();
             $customer_appointment->load( $row['ca_id'] );
-            foreach ( $customer_appointment->getCustomFields() as $custom_field ) {
+            foreach ( (array) Lib\Proxy\CustomFields::getForCustomerAppointment( $customer_appointment ) as $custom_field ) {
                 $custom_fields[ $custom_field['id'] ] = $custom_field['value'];
             }
 
@@ -194,19 +206,21 @@ class Controller extends Lib\Base\Controller
                     'name' => $row['staff_name'] . ( $row['staff_any'] ? $postfix_any : '' ),
                 ),
                 'customer'      => array(
-                    'full_name' => $row['customer_name'],
+                    'full_name' => $row['customer_full_name'],
                     'phone'     => $row['customer_phone'],
                     'email'     => $row['customer_email'],
                 ),
                 'service'    => array(
                     'title'    => $row['service_title'],
                     'duration' => $service_duration,
-                    'extras'   => (array) Lib\Proxy\ServiceExtras::getInfo( $row['extras'], false ),
+                    'extras'   => (array) Lib\Proxy\ServiceExtras::getInfo( json_decode( $row['extras'], true ), false ),
                 ),
                 'status'        => $row['status'],
                 'payment'       => $payment_title,
+                'notes'         => $row['notes'],
                 'custom_fields' => $custom_fields,
                 'ca_id'         => $row['ca_id'],
+                'attachment'    => $row['attachment'],
                 'payment_id'    => $row['payment_id'],
             );
 
@@ -217,7 +231,7 @@ class Controller extends Lib\Base\Controller
         update_user_meta( get_current_user_id(), 'bookly_filter_appointments_list', $filter );
 
         wp_send_json( array(
-            'draw'            => ( int ) $this->getParameter( 'draw' ),
+            'draw'            => (int) $this->getParameter( 'draw' ),
             'recordsTotal'    => $total,
             'recordsFiltered' => count( $data ),
             'data'            => $data,
@@ -232,12 +246,20 @@ class Controller extends Lib\Base\Controller
         /** @var Lib\Entities\CustomerAppointment $ca */
         foreach ( Lib\Entities\CustomerAppointment::query()->whereIn( 'id', $this->getParameter( 'data', array() ) )->find() as $ca ) {
             if ( $this->getParameter( 'notify' ) ) {
-                if ( $ca->get('status') === Lib\Entities\CustomerAppointment::STATUS_PENDING ) {
-                    $ca->set( 'status', Lib\Entities\CustomerAppointment::STATUS_REJECTED );
-                } else { // STATUS_APPROVED
-                    $ca->set( 'status', Lib\Entities\CustomerAppointment::STATUS_CANCELLED );
+                switch ( $ca->getStatus() ) {
+                    case Lib\Entities\CustomerAppointment::STATUS_PENDING:
+                    case Lib\Entities\CustomerAppointment::STATUS_WAITLISTED:
+                        $ca->setStatus( Lib\Entities\CustomerAppointment::STATUS_REJECTED );
+                        break;
+                    case Lib\Entities\CustomerAppointment::STATUS_APPROVED:
+                        $ca->setStatus( Lib\Entities\CustomerAppointment::STATUS_CANCELLED );
+                        break;
                 }
-                Lib\NotificationSender::send( $ca, array( 'cancellation_reason' => $this->getParameter( 'reason' ) ) );
+                Lib\NotificationSender::sendSingle(
+                    DataHolders\Simple::create( $ca ),
+                    null,
+                    array( 'cancellation_reason' => $this->getParameter( 'reason' ) )
+                );
             }
             $ca->deleteCascade();
         }

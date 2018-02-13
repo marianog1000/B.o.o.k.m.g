@@ -21,7 +21,9 @@ abstract class Common
     public static function getAdminEmails()
     {
         return array_map(
-            create_function( '$a', 'return $a->data->user_email;' ),
+            function ( $a ) {
+                return $a->data->user_email;
+            },
             get_users( 'role=administrator' )
         );
     } // getAdminEmails
@@ -181,47 +183,6 @@ abstract class Common
     public static function getTranslatedString( $name, $original_value = '', $language_code = null )
     {
         return apply_filters( 'wpml_translate_single_string', $original_value, 'bookly', $name, $language_code );
-    }
-
-    /**
-     * Get translated custom fields
-     *
-     * @param integer $service_id
-     * @param string $language_code       Return the translation in this language
-     * @return \stdClass[]
-     */
-    public static function getTranslatedCustomFields( $service_id = null, $language_code = null )
-    {
-        $custom_fields  = json_decode( get_option( 'bookly_custom_fields' ) );
-        foreach ( $custom_fields as $key => $custom_field ) {
-            if ( $service_id === null || in_array( $service_id, $custom_field->services ) ) {
-                switch ( $custom_field->type ) {
-                    case 'textarea':
-                    case 'text-content':
-                    case 'text-field':
-                    case 'captcha':
-                        $custom_field->label = self::getTranslatedString( 'custom_field_' . $custom_field->id . '_' . sanitize_title( $custom_field->label ), $custom_field->label, $language_code );
-                        break;
-                    case 'checkboxes':
-                    case 'radio-buttons':
-                    case 'drop-down':
-                        $items = $custom_field->items;
-                        foreach ( $items as $pos => $label ) {
-                            $items[ $pos ] = array(
-                                'value' => $label,
-                                'label' => self::getTranslatedString( 'custom_field_' . $custom_field->id . '_' . sanitize_title( $custom_field->label ) . '=' . sanitize_title( $label ), $label, $language_code )
-                            );
-                        }
-                        $custom_field->label = self::getTranslatedString( 'custom_field_' . $custom_field->id . '_' . sanitize_title( $custom_field->label ), $custom_field->label, $language_code );
-                        $custom_field->items = $items;
-                        break;
-                }
-            } else {
-                unset( $custom_fields[ $key ] );
-            }
-        }
-
-        return $custom_fields;
     }
 
     /**

@@ -104,7 +104,7 @@ class Controller extends Lib\Base\Controller
         foreach ( $category_sorts as $position => $category_id ) {
             $category_sort = new Lib\Entities\Category();
             $category_sort->load( $category_id );
-            $category_sort->set( 'position', $position );
+            $category_sort->setPosition( $position );
             $category_sort->save();
         }
     }
@@ -118,7 +118,7 @@ class Controller extends Lib\Base\Controller
         foreach ( $services_sorts as $position => $service_ids ) {
             $services_sort = new Lib\Entities\Service();
             $services_sort->load( $service_ids );
-            $services_sort->set( 'position', $position );
+            $services_sort->setPosition( $position );
             $services_sort->save();
         }
     }
@@ -137,13 +137,13 @@ class Controller extends Lib\Base\Controller
             ->find();
         foreach ( $positions as $position => $staff_id ) {
             if ( array_key_exists( $staff_id, $staff_preferences ) ) {
-                $staff_preferences[ $staff_id ]->set( 'position', $position )->save();
+                $staff_preferences[ $staff_id ]->setPosition( $position )->save();
             } else {
                 $preference = new Lib\Entities\StaffPreferenceOrder();
                 $preference
-                    ->set( 'service_id', $service_id )
-                    ->set( 'staff_id',   $staff_id )
-                    ->set( 'position',   $position )
+                    ->setServiceId( $service_id )
+                    ->setStaffId( $staff_id )
+                    ->setPosition( $position )
                     ->save();
             }
         }
@@ -157,7 +157,7 @@ class Controller extends Lib\Base\Controller
     public function executeDeleteCategory()
     {
         $category = new Lib\Entities\Category();
-        $category->set( 'id', $this->getParameter( 'id', 0 ) );
+        $category->setId( $this->getParameter( 'id', 0 ) );
         $category->delete();
     }
 
@@ -165,22 +165,51 @@ class Controller extends Lib\Base\Controller
     {
         $form = new Forms\Service();
         $form->bind( $this->getPostParameters() );
-        $form->getObject()->set( 'duration', Lib\Config::getTimeSlotLength() );
+        $form->getObject()->setDuration( Lib\Config::getTimeSlotLength() );
         $service = $form->save();
-        $data = $this->getCaSeStSpCollections( $service->get( 'category_id' ) );
+        $data = $this->getCaSeStSpCollections( $service->getCategoryId() );
         Lib\Proxy\Shared::serviceCreated( $service, $this->getPostParameters() );
-        wp_send_json_success( array( 'html' => $this->render( '_list', $data, false ), 'service_id' => $service->get( 'id' ) ) );
+        wp_send_json_success( array( 'html' => $this->render( '_list', $data, false ), 'service_id' => $service->getId() ) );
     }
 
+    /**
+     * 'Safely' remove services (report if there are future appointments)
+     */
     public function executeRemoveServices()
     {
         $service_ids = $this->getParameter( 'service_ids', array() );
-        if ( is_array( $service_ids ) && ! empty ( $service_ids ) ) {
-            foreach ( $service_ids as $service_id ) {
-                Lib\Proxy\Shared::serviceDeleted( $service_id );
+        if ( $this->getParameter( 'force_delete', false ) ) {
+            if ( is_array( $service_ids ) && ! empty ( $service_ids ) ) {
+                foreach ( $service_ids as $service_id ) {
+                    Lib\Proxy\Shared::serviceDeleted( $service_id );
+                }
+                Lib\Entities\Service::query( 's' )->delete()->whereIn( 's.id', $service_ids )->execute();
             }
-            Lib\Entities\Service::query( 's' )->delete()->whereIn( 's.id', $service_ids )->execute();
+        } else {
+            /** @var Lib\Entities\Appointment $appointment */
+            $appointment = Lib\Entities\Appointment::query( 'a' )
+                ->whereIn( 'a.service_id', $service_ids )
+                ->whereGt( 'a.start_date', current_time( 'mysql' ) )
+                ->sortBy( 'a.start_date' )
+                ->order( 'DESC' )
+                ->limit( '1' )
+                ->findOne();
+
+            if ( $appointment ) {
+                $last_month = date_create( $appointment->getStartDate() )->modify( 'last day of' )->format( 'Y-m-d' );
+                $action = 'show_modal';
+                $filter_url = sprintf( '%s#service=%d&range=%s-%s',
+                    Lib\Utils\Common::escAdminUrl( \Bookly\Backend\Modules\Appointments\Controller::page_slug ),
+                    $appointment->getServiceId(),
+                    date_create( current_time( 'mysql' ) )->format( 'Y-m-d' ),
+                    $last_month );
+                wp_send_json_error( compact( 'action', 'filter_url' ) );
+            } else {
+                $action = 'confirm';
+                wp_send_json_error( compact( 'action' ) );
+            }
         }
+
         wp_send_json_success();
     }
 
@@ -198,56 +227,52 @@ class Controller extends Lib\Base\Controller
 
         $staff_ids = $this->getParameter( 'staff_ids', array() );
         if ( empty ( $staff_ids ) ) {
-            Lib\Entities\StaffService::query()->delete()->where( 'service_id', $service->get( 'id' ) )->execute();
+            Lib\Entities\StaffService::query()->delete()->where( 'service_id', $service->getId() )->execute();
         } else {
-            Lib\Entities\StaffService::query()->delete()->where( 'service_id', $service->get( 'id' ) )->whereNotIn( 'staff_id', $staff_ids )->execute();
-            if ( $this->getParameter( 'update_staff', false ) ) {
-                if ( $service->get( 'type' ) == Lib\Entities\Service::TYPE_PACKAGE && ! $this->getParameter( 'package_service_changed', false ) ) {
-                    $data = array(
-                        'price' => $this->getParameter( 'price' ),
-                    );
-                } else {
+            Lib\Entities\StaffService::query()->delete()->where( 'service_id', $service->getId() )->whereNotIn( 'staff_id', $staff_ids )->execute();
+            if ( $service->getType() == Lib\Entities\Service::TYPE_SIMPLE ) {
+                if ( $this->getParameter( 'update_staff', false ) ) {
                     $data = array(
                         'price'        => $this->getParameter( 'price' ),
-                        'capacity_min' => $service->get( 'capacity_min' ),
-                        'capacity_max' => $service->get( 'capacity_max' ),
+                        'capacity_min' => $service->getCapacityMin(),
+                        'capacity_max' => $service->getCapacityMax(),
+                    );
+                    $wpdb->update(
+                        Lib\Entities\StaffService::getTableName(),
+                        $data,
+                        array( 'service_id' => $this->getParameter( 'id' ) )
                     );
                 }
-                Lib\Proxy\Shared::updateStaffService( $this->getPostParameters() );
-                $wpdb->update(
-                    Lib\Entities\StaffService::getTableName(),
-                    $data,
-                    array( 'service_id' => $this->getParameter( 'id' ) )
-                );
-            }
-            // Create records for newly linked staff.
-            $existing_staff_ids = array();
-            $res = Lib\Entities\StaffService::query()
-                ->select( 'staff_id' )
-                ->where( 'service_id', $service->get( 'id' ) )
-                ->fetchArray();
-            foreach ( $res as $staff ) {
-                $existing_staff_ids[] = $staff['staff_id'];
-            }
-            foreach ( $staff_ids as $staff_id ) {
-                if ( ! in_array( $staff_id, $existing_staff_ids ) ) {
-                    $staff_service = new Lib\Entities\StaffService();
-                    $staff_service->set( 'staff_id',     $staff_id );
-                    $staff_service->set( 'service_id',   $service->get( 'id' ) );
-                    $staff_service->set( 'price',        $service->get( 'price' ) );
-                    $staff_service->set( 'capacity_min', $service->get( 'capacity_min' ) );
-                    $staff_service->set( 'capacity_max', $service->get( 'capacity_max' ) );
-                    $staff_service->save();
+                // Create records for newly linked staff.
+                $existing_staff_ids = array();
+                $res = Lib\Entities\StaffService::query()
+                    ->select( 'staff_id' )
+                    ->where( 'service_id', $service->getId() )
+                    ->fetchArray();
+                foreach ( $res as $staff ) {
+                    $existing_staff_ids[] = $staff['staff_id'];
+                }
+                foreach ( $staff_ids as $staff_id ) {
+                    if ( ! in_array( $staff_id, $existing_staff_ids ) ) {
+                        $staff_service = new Lib\Entities\StaffService();
+                        $staff_service->setStaffId( $staff_id )
+                            ->setServiceId( $service->getId() )
+                            ->setPrice( $service->getPrice() )
+                            ->setCapacityMin( $service->getCapacityMin() )
+                            ->setCapacityMax( $service->getCapacityMax() )
+                            ->save();
+                    }
                 }
             }
         }
 
+        // Update services in addons.
         $alert = Lib\Proxy\Shared::updateService( array( 'success' => array( __( 'Settings saved.', 'bookly' ) ) ), $service, $this->getPostParameters() );
 
-        $price = Lib\Utils\Price::format( $service->get( 'price' ) );
-        $nice_duration = Lib\Utils\DateTime::secondsToInterval( $service->get( 'duration' ) );
-        $title = $service->get( 'title' );
-        $colors = array_fill( 0, 3, $service->get( 'color' ) );
+        $price = Lib\Utils\Price::format( $service->getPrice() );
+        $nice_duration = Lib\Utils\DateTime::secondsToInterval( $service->getDuration() );
+        $title = $service->getTitle();
+        $colors = array_fill( 0, 3, $service->getColor() );
         wp_send_json_success( Lib\Proxy\Shared::prepareUpdateServiceResponse( compact( 'title', 'price', 'colors', 'nice_duration', 'alert' ), $service, $this->getPostParameters() ) );
     }
 
@@ -313,15 +338,14 @@ class Controller extends Lib\Base\Controller
         }
         $result = $services->fetchArray();
         foreach ( $result as &$service ) {
-            $service['sub_services'] = array();
-            $rows = Lib\Entities\SubService::query()
-                ->select( 'sub_service_id' )
+            $service['sub_services'] = Lib\Entities\SubService::query()
                 ->where( 'service_id', $service['id'] )
                 ->sortBy( 'position' )
-                ->fetchArray();
-            foreach ( $rows as $row ) {
-                $service['sub_services'][] = $row['sub_service_id'];
-            }
+                ->fetchArray()
+            ;
+            $service['sub_services_count'] = array_sum( array_map( function ( $sub_service ) {
+                return (int) ( $sub_service['type'] == Lib\Entities\SubService::TYPE_SERVICE );
+            }, $service['sub_services'] ) );
             $service['colors'] = Lib\Proxy\Shared::prepareServiceColors( array_fill( 0, 3, $service['color'] ), $service['id'], $service['type'] );
         }
 

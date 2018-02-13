@@ -11,14 +11,14 @@ class Components extends Lib\Base\Components
 {
     /**
      * Render appointment dialog.
-     * @throws \Exception
+     * @throws
      */
     public function renderAppointmentDialog()
     {
         global $wp_locale;
 
         $this->enqueueStyles( array(
-            'backend'  => array( 'css/jquery-ui-theme/jquery-ui.min.css', ),
+            'backend'  => array( 'css/jquery-ui-theme/jquery-ui.min.css', 'css/select2.min.css' ),
             'frontend' => array( 'css/ladda.min.css', ),
         ) );
 
@@ -27,7 +27,7 @@ class Components extends Lib\Base\Components
                 'js/angular.min.js'           => array( 'jquery' ),
                 'js/angular-ui-date-0.0.8.js' => array( 'bookly-angular.min.js' ),
                 'js/moment.min.js'            => array( 'jquery' ),
-                'js/chosen.jquery.min.js'     => array( 'jquery' ),
+                'js/select2.full.min.js'      => array( 'jquery' ),
                 'js/help.js'                  => array( 'jquery' ),
             ),
             'frontend' => array(
@@ -49,20 +49,16 @@ class Components extends Lib\Base\Components
                 'longDays'        => array_values( $wp_locale->weekday ),
                 'firstDay'        => (int) get_option( 'start_of_week' ),
             ),
-            'cf_per_service' => (int) Lib\Config::customFieldsPerService(),
-            'title'          => array(
+            'cf_per_service'  => (int) Lib\Config::customFieldsPerService(),
+            'no_result_found' => __( 'No result found', 'bookly' ),
+            'staff_any'       => get_option( 'bookly_l10n_option_employee' ),
+            'title'           => array(
                 'edit_appointment' => __( 'Edit appointment', 'bookly' ),
                 'new_appointment'  => __( 'New appointment',  'bookly' ),
             ),
         ) );
 
-        // Custom fields without captcha field.
-        $custom_fields = array_filter(
-            json_decode( get_option( 'bookly_custom_fields' ) ),
-            function( $field ) { return ! in_array( $field->type, array( 'captcha', 'text-content' ) ); }
-        );
-
-        $this->render( '_appointment_dialog', compact( 'custom_fields' ) );
+        $this->render( '_appointment_dialog' );
     }
 
     /**

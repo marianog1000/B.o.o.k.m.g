@@ -46,12 +46,12 @@ class Staff
      */
     public function addBooking( Booking $booking )
     {
-        $date = $booking->getRange()->start()->value()->format( 'Y-m-d' );
+        $date = $booking->range()->start()->value()->format( 'Y-m-d' );
         if ( ! isset( $this->workload[ $date ] ) ) {
             $this->workload[ $date ] = 0;
         }
         $this->bookings[] = $booking;
-        $this->workload[ $date ] += $booking->getRangeWithPadding()->length();
+        $this->workload[ $date ] += $booking->rangeWithPadding()->length();
 
         return $this;
     }

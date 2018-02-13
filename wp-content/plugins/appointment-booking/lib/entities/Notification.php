@@ -9,44 +9,55 @@ use Bookly\Lib;
  */
 class Notification extends Lib\Base\Entity
 {
+    const TYPE_APPOINTMENT_START_TIME              = 'appointment_start_time';
+    const TYPE_CUSTOMER_BIRTHDAY                   = 'customer_birthday';
+    const TYPE_LAST_CUSTOMER_APPOINTMENT           = 'last_appointment';
+    const TYPE_CUSTOMER_APPOINTMENT_STATUS_CHANGED = 'ca_status_changed';
+    const TYPE_CUSTOMER_APPOINTMENT_CREATED        = 'ca_created';
+    const TYPE_STAFF_DAY_AGENDA                    = 'staff_day_agenda';
+
+    /** @var  string */
+    protected $gateway = 'email';
+    /** @var  string */
+    protected $type;
+    /** @var  bool */
+    protected $active = 0;
+    /** @var  string */
+    protected $subject = '';
+    /** @var  string */
+    protected $message = '';
+    /** @var  int */
+    protected $to_staff = 0;
+    /** @var  int */
+    protected $to_customer = 0;
+    /** @var  bool */
+    protected $to_admin = 0;
+    /** @var  bool */
+    protected $attach_ics = 0;
+    /** @var  string json */
+    protected $settings = '[]';
+
     protected static $table = 'ab_notifications';
 
     protected static $schema = array(
-        'id'      => array( 'format' => '%d' ),
-        'gateway' => array( 'format' => '%s', 'default' => 'email' ),
-        'type'    => array( 'format' => '%s', 'default' => '' ),
-        'active'  => array( 'format' => '%d', 'default' => 0 ),
-        'copy'    => array( 'format' => '%d', 'default' => 0 ),
-        'subject' => array( 'format' => '%s', 'default' => '' ),
-        'message' => array( 'format' => '%s', 'default' => '' ),
+        'id'          => array( 'format' => '%d' ),
+        'gateway'     => array( 'format' => '%s' ),
+        'type'        => array( 'format' => '%s' ),
+        'active'      => array( 'format' => '%d' ),
+        'subject'     => array( 'format' => '%s' ),
+        'message'     => array( 'format' => '%s' ),
+        'to_staff'    => array( 'format' => '%d' ),
+        'to_customer' => array( 'format' => '%d' ),
+        'to_admin'    => array( 'format' => '%d' ),
+        'attach_ics'  => array( 'format' => '%d' ),
+        'settings'    => array( 'format' => '%s' ),
     );
 
-    protected static $cache = array();
-
-    /** @var array  Human readable notification names */
-    public static $names = null;
+    /** @var array Human readable notification names */
+    public static $names;
 
     /** @var array */
-    public static $type_ids = null;
-
-    /**
-     * Save entity.
-     *
-     * @return false|int
-     */
-    public function save()
-    {
-        $return = parent::save();
-        if ( $this->isLoaded() ) {
-            // Register string for translate in WPML.
-            do_action( 'wpml_register_single_string', 'bookly', $this->get( 'gateway' ) . '_' . $this->get( 'type' ), $this->get( 'message' ) );
-            if ( $this->get( 'gateway' ) == 'email' ) {
-                do_action( 'wpml_register_single_string', 'bookly', $this->get( 'gateway' ) . '_' . $this->get( 'type' ) . '_subject', $this->get( 'subject' ) );
-            }
-        }
-
-        return $return;
-    }
+    public static $type_ids;
 
     /**
      * Get type ID.
@@ -57,9 +68,27 @@ class Notification extends Lib\Base\Entity
     {
         self::initTypeIds();
 
-        return isset ( self::$type_ids[ $this->get( 'type' ) ] )
-            ? self::$type_ids[ $this->get( 'type' ) ]
+        return isset ( self::$type_ids[ $this->getType() ] )
+            ? self::$type_ids[ $this->getType() ]
             : null;
+    }
+
+    /**
+     * @param string $locale
+     * @return string
+     */
+    public function getTranslatedMessage( $locale = null )
+    {
+        return Lib\Utils\Common::getTranslatedString( $this->getWpmlName(), $this->getMessage(), $locale );
+    }
+
+    /**
+     * @param string $locale
+     * @return string
+     */
+    public function getTranslatedSubject( $locale = null )
+    {
+        return Lib\Utils\Common::getTranslatedString( $this->getWpmlName() . '_subject', $this->getSubject(), $locale );
     }
 
     /**
@@ -93,6 +122,23 @@ class Notification extends Lib\Base\Entity
     }
 
     /**
+     * Return custom notification codes.
+     *
+     * @return array
+     */
+    public static function getCustomNotificationTypes()
+    {
+        return array(
+            Lib\Entities\Notification::TYPE_CUSTOMER_APPOINTMENT_CREATED,
+            Lib\Entities\Notification::TYPE_APPOINTMENT_START_TIME,
+            Lib\Entities\Notification::TYPE_CUSTOMER_APPOINTMENT_STATUS_CHANGED,
+            Lib\Entities\Notification::TYPE_LAST_CUSTOMER_APPOINTMENT,
+            Lib\Entities\Notification::TYPE_CUSTOMER_BIRTHDAY,
+            Lib\Entities\Notification::TYPE_STAFF_DAY_AGENDA,
+        );
+    }
+
+    /**
      * Fill array with notification names.
      */
     private static function initNames()
@@ -117,6 +163,14 @@ class Notification extends Lib\Base\Entity
                 'staff_cancelled_appointment'      => __( 'Notification to staff member about cancelled appointment', 'bookly' ),
                 'staff_rejected_appointment'       => __( 'Notification to staff member about rejected appointment', 'bookly' ),
                 'staff_pending_appointment'        => __( 'Notification to staff member about pending appointment', 'bookly' ),
+
+                Notification::TYPE_APPOINTMENT_START_TIME              => __( 'Notification about appointment date and time (requires cron setup)', 'bookly' ),
+                Notification::TYPE_CUSTOMER_APPOINTMENT_CREATED        => __( 'Notification about appointment created (requires cron setup)', 'bookly' ),
+                Notification::TYPE_CUSTOMER_APPOINTMENT_STATUS_CHANGED => __( 'Notification about appointment status changed (requires cron setup)', 'bookly' ),
+                Notification::TYPE_CUSTOMER_BIRTHDAY                   => __( 'Customer birthday greeting (requires cron setup)', 'bookly' ),
+                Notification::TYPE_LAST_CUSTOMER_APPOINTMENT           => __( 'Notification about last appointment (requires cron setup)', 'bookly' ),
+                Notification::TYPE_STAFF_DAY_AGENDA                    => __( 'Notification about staff agenda (requires cron setup)', 'bookly' ),
+
                 /** @see \Bookly\Backend\Modules\Sms\Controller::executeSendTestSms */
                 'test_message'                     => __( 'Test message', 'bookly' ),
             );
@@ -153,11 +207,293 @@ class Notification extends Lib\Base\Entity
                 'client_reminder_1st'              => 16,
                 'client_reminder_2nd'              => 17,
                 'client_reminder_3rd'              => 18,
+
+                Notification::TYPE_STAFF_DAY_AGENDA                    => 9,
+                Notification::TYPE_CUSTOMER_BIRTHDAY                   => 15,
+                Notification::TYPE_APPOINTMENT_START_TIME              => 19,
+                Notification::TYPE_LAST_CUSTOMER_APPOINTMENT           => 20,
+                Notification::TYPE_CUSTOMER_APPOINTMENT_STATUS_CHANGED => 21,
+                Notification::TYPE_CUSTOMER_APPOINTMENT_CREATED        => 22,
+
                 // Recurring Appointments add-on   => [31-38],
                 // Waiting List add-on             => [51-53],
+                // Packages add-on                 => [81-82],
             );
 
             self::$type_ids = Lib\Proxy\Shared::prepareNotificationTypeIds( self::$type_ids );
         }
     }
+
+    /**
+     * Return unique name for WPML
+     *
+     * @return string
+     */
+    private function getWpmlName()
+    {
+        return sprintf( '%s_%s_%d', $this->getGateway(), $this->getType(), $this->getId() );
+    }
+
+    /**************************************************************************
+     * Entity Fields Getters & Setters                                        *
+     **************************************************************************/
+
+    /**
+     * Gets gateway
+     *
+     * @return string
+     */
+    public function getGateway()
+    {
+        return $this->gateway;
+    }
+
+    /**
+     * Sets gateway
+     *
+     * @param string $gateway
+     * @return $this
+     */
+    public function setGateway( $gateway )
+    {
+        $this->gateway = $gateway;
+
+        return $this;
+    }
+
+    /**
+     * Gets type
+     *
+     * @return string
+     */
+    public function getType()
+    {
+        return $this->type;
+    }
+
+    /**
+     * Sets type
+     *
+     * @param string $type
+     * @return $this
+     */
+    public function setType( $type )
+    {
+        $this->type = $type;
+
+        return $this;
+    }
+
+    /**
+     * Gets active
+     *
+     * @return bool
+     */
+    public function getActive()
+    {
+        return $this->active;
+    }
+
+    /**
+     * Sets active
+     *
+     * @param bool $active
+     * @return $this
+     */
+    public function setActive( $active )
+    {
+        $this->active = $active;
+
+        return $this;
+    }
+
+    /**
+     * Gets to admin
+     *
+     * @return bool
+     */
+    public function getToAdmin()
+    {
+        return $this->to_admin;
+    }
+
+    /**
+     * Sets to admin
+     *
+     * @param bool $to_admin
+     * @return $this
+     */
+    public function setToAdmin( $to_admin )
+    {
+        $this->to_admin = $to_admin;
+
+        return $this;
+    }
+
+    /**
+     * Gets subject
+     *
+     * @return string
+     */
+    public function getSubject()
+    {
+        return $this->subject;
+    }
+
+    /**
+     * Sets subject
+     *
+     * @param string $subject
+     * @return $this
+     */
+    public function setSubject( $subject )
+    {
+        $this->subject = $subject;
+
+        return $this;
+    }
+
+    /**
+     * Gets message
+     *
+     * @return string
+     */
+    public function getMessage()
+    {
+        return $this->message;
+    }
+
+    /**
+     * Sets message
+     *
+     * @param string $message
+     * @return $this
+     */
+    public function setMessage( $message )
+    {
+        $this->message = $message;
+
+        return $this;
+    }
+
+    /**
+     * Gets to_staff
+     *
+     * @return int
+     */
+    public function getToStaff()
+    {
+        return $this->to_staff;
+    }
+
+    /**
+     * Sets to_staff
+     *
+     * @param int $to_staff
+     * @return $this
+     */
+    public function setToStaff( $to_staff )
+    {
+        $this->to_staff = $to_staff;
+
+        return $this;
+    }
+
+    /**
+     * Gets to_customer
+     *
+     * @return int
+     */
+    public function getToCustomer()
+    {
+        return $this->to_customer;
+    }
+
+    /**
+     * Sets to_customer
+     *
+     * @param int $to_customer
+     * @return $this
+     */
+    public function setToCustomer( $to_customer )
+    {
+        $this->to_customer = $to_customer;
+
+        return $this;
+    }
+
+    /**
+     * Gets attach_ics
+     *
+     * @return bool
+     */
+    public function getAttachIcs()
+    {
+        return $this->attach_ics;
+    }
+
+    /**
+     * Sets attach_ics
+     *
+     * @param bool $attach_ics
+     * @return $this
+     */
+    public function setAttachIcs( $attach_ics )
+    {
+        $this->attach_ics = $attach_ics;
+
+        return $this;
+    }
+
+    /**
+     * Gets settings
+     *
+     * @return string
+     */
+    public function getSettings()
+    {
+        return $this->settings;
+    }
+
+    /**
+     * Sets settings
+     *
+     * @param string $settings
+     * @return $this
+     */
+    public function setSettings( $settings )
+    {
+        $this->settings = $settings;
+
+        return $this;
+    }
+
+    /**************************************************************************
+     * Overridden Methods                                                     *
+     **************************************************************************/
+
+    /**
+     * Save entity.
+     *
+     * @return false|int
+     */
+    public function save()
+    {
+        if ( is_array( $this->settings ) ) {
+            $this->settings = json_encode( $this->settings );
+        }
+
+        $return = parent::save();
+        if ( $this->isLoaded() ) {
+            // Register string for translate in WPML.
+            $name = $this->getWpmlName();
+            do_action( 'wpml_register_single_string', 'bookly', $name, $this->getMessage() );
+            if ( $this->getGateway() == 'email' ) {
+                do_action( 'wpml_register_single_string', 'bookly', $name . '_subject', $this->getSubject() );
+            }
+        }
+
+        return $return;
+    }
+
 }

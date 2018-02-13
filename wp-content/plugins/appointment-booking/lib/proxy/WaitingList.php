@@ -11,8 +11,14 @@ use Bookly\Lib;
  *
  * @method static void handleParticipantsChange( Lib\Entities\Appointment $appointment ) Handle the change of participants of given appointment
  * @see \BooklyWaitingList\Lib\ProxyProviders\Local::handleParticipantsChange()
+ *
+ * @method static void renderAppearanceTimeStepInfoText() Render info text at time step in appearance
+ * @see \BooklyWaitingList\Lib\ProxyProviders\Local::renderAppearanceTimeStepInfoText()
+ *
+ * @method static void renderTimeStepInfoText() Render info text at time step
+ * @see \BooklyWaitingList\Lib\ProxyProviders\Local::renderTimeStepInfoText()
  */
-class WaitingList extends Lib\Base\ProxyInvoker
+abstract class WaitingList extends Lib\Base\ProxyInvoker
 {
 
 }

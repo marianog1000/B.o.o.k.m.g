@@ -37,6 +37,7 @@ class Controller extends Lib\Base\Controller
         $cron_reminder = (array) get_option( 'bookly_cron_reminder_times' );
         $form  = new Forms\Notifications( 'email' );
         $alert = array( 'success' => array() );
+        $current_notification_id = null;
         // Save action.
         if ( ! empty ( $_POST ) ) {
             if ( $this->csrfTokenValid() ) {
@@ -47,6 +48,7 @@ class Controller extends Lib\Base\Controller
                 update_option( 'bookly_email_reply_to_customers', $this->getParameter( 'bookly_email_reply_to_customers' ) );
                 update_option( 'bookly_email_sender', $this->getParameter( 'bookly_email_sender' ) );
                 update_option( 'bookly_email_sender_name', $this->getParameter( 'bookly_email_sender_name' ) );
+                update_option( 'bookly_ntf_processing_interval', (int) $this->getParameter( 'bookly_ntf_processing_interval' ) );
                 foreach ( array( 'staff_agenda', 'client_follow_up', 'client_reminder', 'client_birthday_greeting' ) as $type ) {
                     $cron_reminder[ $type ] = $this->getParameter( $type . '_cron_hour' );
                 }
@@ -54,15 +56,22 @@ class Controller extends Lib\Base\Controller
                     $cron_reminder[ $type ] = $this->getParameter( $type . '_cron_before_hour' );
                 }
                 update_option( 'bookly_cron_reminder_times', $cron_reminder );
+                $current_notification_id = $this->getParameter( 'new_notification_id' );
             }
         }
         $cron_uri = plugins_url( 'lib/utils/send_notifications_cron.php', Lib\Plugin::getMainFile() );
         wp_localize_script( 'bookly-alert.js', 'BooklyL10n',  array(
-            'csrf_token' => Lib\Utils\Common::getCsrfToken(),
-            'alert' => $alert,
-            'sent_successfully' => __( 'Sent successfully.', 'bookly' )
+            'csrf_token'   => Lib\Utils\Common::getCsrfToken(),
+            'are_you_sure' => __( 'Are you sure?', 'bookly' ),
+            'alert'        => $alert,
+            'current_notification_id' => $current_notification_id,
+            'sent_successfully'       => __( 'Sent successfully.', 'bookly' ),
         ) );
-        $this->render( 'index', compact( 'form', 'cron_uri', 'cron_reminder' ) );
+        $statuses = Lib\Entities\CustomerAppointment::getStatuses();
+        foreach ( range( 1, 23 ) as $hours ) {
+            $bookly_ntf_processing_interval_values[] = array( $hours, Lib\Utils\DateTime::secondsToInterval( $hours * HOUR_IN_SECONDS ) );
+        }
+        $this->render( 'index', compact( 'form', 'cron_uri', 'cron_reminder', 'statuses', 'bookly_ntf_processing_interval_values' ) );
     }
 
     public function executeGetEmailNotificationsData()
@@ -77,9 +86,15 @@ class Controller extends Lib\Base\Controller
 
         $notifications = array();
         foreach ( $form->getData() as $notification ) {
+            $name = Lib\Entities\Notification::getName( $notification['type'] );
+            if ( in_array( $notification['type'], Lib\Entities\Notification::getCustomNotificationTypes() ) && $notification['subject'] != '' ) {
+                // In window Test Email Notification
+                // for custom notification, subject is name.
+                $name = $notification['subject'];
+            }
             $notifications[] = array(
                 'type'   => $notification['type'],
-                'name'   => $notification['name'],
+                'name'   => $name,
                 'active' => $notification['active'],
             );
         }
@@ -124,4 +139,46 @@ class Controller extends Lib\Base\Controller
 
         wp_send_json_success();
     }
+
+    /**
+     * Create new custom notification
+     */
+    public function executeCreateCustomNotification()
+    {
+        $notification = new Lib\Entities\Notification();
+        $notification
+            ->setType( Lib\Entities\Notification::TYPE_APPOINTMENT_START_TIME )
+            ->setToCustomer( 1 )
+            ->setToStaff( 1 )
+            ->setSettings( json_encode( Lib\DataHolders\Notification\Settings::getDefault() ) )
+            ->setGateway( 'email' )
+            ->save();
+
+        $notification = $notification->getFields();
+        $id   = $notification['id'];
+        $html = '';
+        if ( $this->getParameter( 'render' ) ) {
+            $form     = new Forms\Notifications( 'email' );
+            $statuses = Lib\Entities\CustomerAppointment::getStatuses();
+
+            $html = $this->render( '_custom_notification', compact( 'form', 'notification', 'statuses' ), false );
+        }
+        wp_send_json_success( compact( 'html', 'id' ) );
+    }
+
+    /**
+     * Delete custom notification
+     */
+    public function executeDeleteCustomNotification()
+    {
+        $id = $this->getParameter( 'id' );
+        Lib\Entities\Notification::query()
+            ->delete()
+            ->where( 'id', $id )
+            ->whereIn( 'type', Lib\Entities\Notification::getCustomNotificationTypes() )
+            ->execute();
+
+        wp_send_json_success();
+    }
+
 }

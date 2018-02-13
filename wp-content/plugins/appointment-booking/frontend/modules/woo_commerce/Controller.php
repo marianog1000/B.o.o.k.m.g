@@ -2,6 +2,7 @@
 namespace Bookly\Frontend\Modules\WooCommerce;
 
 use Bookly\Lib;
+use Bookly\Frontend\Modules\Booking\Lib\Errors;
 
 /**
  * Class Controller
@@ -67,17 +68,17 @@ class Controller extends Lib\Base\Controller
                 if ( $wc_item['quantity'] > 1 ) {
                     foreach ( $userData->cart->getItems() as $cart_item ) {
                         // Equal appointments increase quantity
-                        $cart_item->set( 'number_of_persons', $cart_item->get( 'number_of_persons' ) * $wc_item['quantity'] );
+                        $cart_item->setNumberOfPersons( $cart_item->getNumberOfPersons() * $wc_item['quantity'] );
                     }
                 }
                 // Check if appointment's time is still available
                 $failed_cart_key = $userData->cart->getFailedKey();
                 if ( $failed_cart_key !== null ) {
                     $cart_item = $userData->cart->get( $failed_cart_key );
-                    $slot = $cart_item->get( 'slots' );
+                    $slot = $cart_item->getSlots();
                     $notice = strtr( __( 'Sorry, the time slot %date_time% for %service% has been already occupied.', 'bookly' ),
                         array(
-                            '%service%'   => '<strong>' . $cart_item->getService()->getTitle() . '</strong>',
+                            '%service%'   => '<strong>' . $cart_item->getService()->getTranslatedTitle() . '</strong>',
                             '%date_time%' => Lib\Utils\DateTime::formatDateTime( $slot[0][2] )
                     ) );
                     wc_print_notice( $notice, 'notice' );
@@ -142,25 +143,31 @@ class Controller extends Lib\Base\Controller
                 $userData->cart->setItemsData( $data['items'] );
                 if ( $order_item['qty'] > 1 ) {
                     foreach ( $userData->cart->getItems() as $cart_item ) {
-                        $cart_item->set( 'number_of_persons', $cart_item->get( 'number_of_persons' ) * $order_item['qty'] );
+                        $cart_item->setNumberOfPersons( $cart_item->getNumberOfPersons() * $order_item['qty'] );
                     }
                 }
                 list( $total, $deposit ) = $userData->cart->getInfo();
                 $payment = new Lib\Entities\Payment();
                 $payment
-                    ->set( 'type',     Lib\Entities\Payment::TYPE_WOOCOMMERCE )
-                    ->set( 'status',   Lib\Entities\Payment::STATUS_COMPLETED )
-                    ->set( 'total',    $total )
-                    ->set( 'paid',     $deposit )
-                    ->set( 'created',  current_time( 'mysql' ) )
+                    ->setType( Lib\Entities\Payment::TYPE_WOOCOMMERCE )
+                    ->setStatus( Lib\Entities\Payment::STATUS_COMPLETED )
+                    ->setTotal( $total )
+                    ->setPaid( $deposit )
+                    ->setCreated( current_time( 'mysql' ) )
                     ->save();
-                $ca_list = $userData->save( $payment->get( 'id' ) );
-                $payment->setDetails( $ca_list )->save();
+                $order = $userData->save( $payment );
+                $payment->setDetailsFromOrder( $order )->save();
+                if ( get_option( 'bookly_cst_create_account' ) && $order->getCustomer()->getWpUserId() ) {
+                    update_post_meta( $order_id, '_customer_user', $order->getCustomer()->getWpUserId() );
+                }
                 // Mark item as processed.
                 $data['processed'] = true;
-                $data['ca_ids']    = array_keys( $ca_list );
+                $data['ca_list']   = array();
+                foreach ( $order->getFlatItems() as $item ) {
+                    $data['ca_list'][] = $item->getCA()->getId();
+                }
                 wc_update_order_item_meta( $item_id, 'bookly', $data );
-                Lib\NotificationSender::sendFromCart( $ca_list );
+                Lib\NotificationSender::sendFromCart( $order );
             }
         }
     }
@@ -256,7 +263,7 @@ class Controller extends Lib\Base\Controller
                 $userData->cart->setItemsData( $wc_item['bookly']['items'] );
                 list ( , $deposit, $due ) = $userData->cart->getInfo();
                 foreach ( $userData->cart->getItems() as $cart_item ) {
-                    $slots     = $cart_item->get( 'slots' );
+                    $slots     = $cart_item->getSlots();
                     $client_dp = Lib\Slots\DatePoint::fromStr( $slots[0][2] )->toClientTz();
                     $service   = $cart_item->getService();
                     $staff     = $cart_item->getStaff();
@@ -265,13 +272,13 @@ class Controller extends Lib\Base\Controller
                         '{amount_to_pay}'     => Lib\Utils\Price::format( $deposit ),
                         '{appointment_date}'  => $client_dp->formatI18nDate(),
                         '{appointment_time}'  => $client_dp->formatI18nTime(),
-                        '{category_name}'     => $service ? $service->getCategoryName() : '',
-                        '{number_of_persons}' => $cart_item->get( 'number_of_persons' ),
-                        '{service_info}'      => $service ? $service->getInfo() : '',
-                        '{service_name}'      => $service ? $service->getTitle() : __( 'Service was not found', 'bookly' ),
+                        '{category_name}'     => $service ? $service->getTranslatedCategoryName() : '',
+                        '{number_of_persons}' => $cart_item->getNumberOfPersons(),
+                        '{service_info}'      => $service ? $service->getTranslatedInfo() : '',
+                        '{service_name}'      => $service ? $service->getTranslatedTitle() : __( 'Service was not found', 'bookly' ),
                         '{service_price}'     => $service ? Lib\Utils\Price::format( $cart_item->getServicePrice() ) : '',
-                        '{staff_info}'        => $staff ? $staff->getInfo() : '',
-                        '{staff_name}'        => $staff ? $staff->getName() : '',
+                        '{staff_info}'        => $staff ? $staff->getTranslatedInfo() : '',
+                        '{staff_name}'        => $staff ? $staff->getTranslatedName() : '',
                     );
                     $data  = Lib\Proxy\Shared::prepareCartItemInfoText( array(), $cart_item );
                     $codes = Lib\Proxy\Shared::prepareInfoTextCodes( $codes, $data );
@@ -326,31 +333,39 @@ class Controller extends Lib\Base\Controller
                 $session->set_customer_session_cookie( true );
             }
             if ( $userData->cart->getFailedKey() === null ) {
-                $cart_item = $this->getIntersectedItem( $userData->cart->getItems() );
+                $cart_item  = $this->getIntersectedItem( $userData->cart->getItems() );
                 if ( $cart_item === null ) {
+                    $first_name = $userData->getFirstName();
+                    $last_name  = $userData->getLastName();
+                    $full_name  = $userData->getFullName();
+                    // Check if defined First name
+                    if ( ! $first_name ) {
+                        $first_name = strtok( $full_name, ' ' );
+                        $last_name  = strtok( '' );
+                    }
                     $bookly = array(
                         'version'           => self::VERSION,
-                        'email'             => $userData->get( 'email' ),
+                        'email'             => $userData->getEmail(),
                         'items'             => $userData->cart->getItemsData(),
-                        'name'              => $userData->get( 'full_name' ),
-                        'first_name'        => $userData->get( 'first_name' ),
-                        'last_name'         => $userData->get( 'last_name' ),
-                        'phone'             => $userData->get( 'phone' ),
-                        'time_zone_offset'  => $userData->get( 'time_zone_offset' ),
+                        'name'              => $full_name,
+                        'first_name'        => $first_name,
+                        'last_name'         => $last_name,
+                        'phone'             => $userData->getPhone(),
+                        'time_zone_offset'  => $userData->getTimeZoneOffset(),
                     );
 
-                    // Qnt 1 product in $userData exist value with number_of_persons
+                    // Qnt 1 product in $userData exists value with number_of_persons
                     WC()->cart->add_to_cart( $this->product_id, 1, '', array(), array( 'bookly' => $bookly ) );
 
                     $response = array( 'success' => true );
                 } else {
-                    $response = array( 'success' => false, 'error' => Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_step_time_slot_not_available' ) );
+                    $response = array( 'success' => false, 'error' => Errors::CART_ITEM_NOT_AVAILABLE );
                 }
             } else {
-                $response = array( 'success' => false, 'error' => Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_step_time_slot_not_available' ) );
+                $response = array( 'success' => false, 'error' => Errors::CART_ITEM_NOT_AVAILABLE );
             }
         } else {
-            $response = array( 'success' => false, 'error' => __( 'Session error.', 'bookly' ) );
+            $response = array( 'success' => false, 'error' => Errors::SESSION_ERROR );
         }
         wp_send_json( $response );
     }
@@ -383,7 +398,7 @@ class Controller extends Lib\Base\Controller
                     $entity->setData( $item_data );
                     if ( $wc_item['quantity'] > 1 ) {
                         $nop = $item_data['number_of_persons'] *= $wc_item['quantity'];
-                        $entity->set( 'number_of_persons', $nop );
+                        $entity->setNumberOfPersons( $nop );
                     }
                     $wc_items[] = $entity;
                 }
@@ -392,17 +407,17 @@ class Controller extends Lib\Base\Controller
         $staff_service = array();
         foreach ( $new_items as $cart_key => $candidate_cart_item ) {
             foreach ( $wc_items as $wc_cart_item ) {
-                $candidate_staff_id   = $candidate_cart_item->getStaff()->get( 'id' );
-                $candidate_service_id = $candidate_cart_item->getService()->get( 'id' );
-                $candidate_slots      = $candidate_cart_item->get( 'slots' );
-                $wc_cart_slots        = $wc_cart_item->get( 'slots' );
+                $candidate_staff_id   = $candidate_cart_item->getStaff()->getId();
+                $candidate_service_id = $candidate_cart_item->getService()->getId();
+                $candidate_slots      = $candidate_cart_item->getSlots();
+                $wc_cart_slots        = $wc_cart_item->getSlots();
                 if ( $wc_cart_item->getStaff() && $candidate_cart_item->getService() ) {
-                    if ( $candidate_staff_id == $wc_cart_item->getStaff()->get( 'id' ) ) {
+                    if ( $candidate_staff_id == $wc_cart_item->getStaff()->getId() ) {
                         // Equal Staff
                         $candidate_start = date_create( $candidate_slots[0][2] );
-                        $candidate_end   = $candidate_start->modify( ( $candidate_cart_item->getService()->get( 'duration' ) + $candidate_cart_item->getExtrasDuration() ) . ' sec' );
+                        $candidate_end   = date_create( $candidate_slots[0][2] )->modify( ( $candidate_cart_item->getService()->getDuration() + $candidate_cart_item->getExtrasDuration() ) . ' sec' );
                         $wc_cart_start   = date_create( $wc_cart_slots[0][2] );
-                        $wc_cart_end     = $wc_cart_start->modify( ( $wc_cart_item->getService()->get( 'duration' ) + $wc_cart_item->getExtrasDuration() ) . ' sec' );
+                        $wc_cart_end     = date_create( $wc_cart_slots[0][2] )->modify( ( $wc_cart_item->getService()->getDuration() + $wc_cart_item->getExtrasDuration() ) . ' sec' );
                         if ( ( $wc_cart_end > $candidate_start ) && ( $candidate_end > $wc_cart_start ) ) {
                             // Services intersected.
                             if ( $candidate_start == $wc_cart_start ) {
@@ -411,7 +426,7 @@ class Controller extends Lib\Base\Controller
                                     $staff_service[ $candidate_staff_id ][ $candidate_service_id ] = $this->getCapacity( $candidate_staff_id, $candidate_service_id );
                                 }
                                 $allow_capacity = $staff_service[ $candidate_staff_id ][ $candidate_service_id ];
-                                $nop = $candidate_cart_item->get( 'number_of_persons' ) + $wc_cart_item->get( 'number_of_persons' );
+                                $nop = $candidate_cart_item->getNumberOfPersons() + $wc_cart_item->getNumberOfPersons();
                                 if ( $nop > $allow_capacity ) {
                                     // Equal Staff/Service/Start and number_of_persons > capacity
                                     return $candidate_cart_item;

@@ -2,6 +2,7 @@
 use Bookly\Lib\Utils\DateTime;
 use Bookly\Lib\Utils\Price;
 use Bookly\Lib\Entities;
+use Bookly\Lib\Proxy;
 ?>
 <?php foreach ( $appointments as $app ) : ?>
     <?php if ( ! isset( $compound_token[ $app['compound_token'] ] ) ) :
@@ -41,7 +42,7 @@ use Bookly\Lib\Entities;
                     <td><?php echo Entities\CustomerAppointment::statusToString( $app['appointment_status'] ) ?></td><?php
                     break;
                 case 'cancel' :
-                    $this->render( '_custom_fields', compact( 'custom_fields', 'app' ) ); ?>
+                    Proxy\CustomFields::renderCustomerProfileRow( $custom_fields, $app ) ?>
                     <td>
                     <?php if ( $app['start_date'] > current_time( 'mysql' ) ) : ?>
                         <?php if ( $allow_cancel < strtotime( $app['start_date'] ) ) : ?>
@@ -65,9 +66,9 @@ use Bookly\Lib\Entities;
                     <td><?php echo $app[ $column ] ?></td>
             <?php endswitch ?>
         <?php endforeach ?>
+        <?php if ( $with_cancel == false ) :
+            Proxy\CustomFields::renderCustomerProfileRow( $custom_fields, $app );
+        endif ?>
     <?php endif ?>
-    <?php if ( $with_cancel == false ) :
-        $this->render( '_custom_fields', compact( 'custom_fields', 'app' ) );
-    endif ?>
     </tr>
 <?php endforeach ?>

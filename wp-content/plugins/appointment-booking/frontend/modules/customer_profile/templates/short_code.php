@@ -1,7 +1,9 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
     $color = get_option( 'bookly_app_color', '#f4662f' );
     $compound_tokens = array();
-    $custom_fields = isset( $attributes['custom_fields'] ) ? explode( ',', $attributes['custom_fields'] ) : array();
+    $custom_fields = Bookly\Lib\Config::customFieldsEnabled() && isset ( $attributes['custom_fields'] )
+        ? explode( ',', $attributes['custom_fields'] )
+        : array();
     $columns = isset( $attributes['columns'] ) ? explode( ',', $attributes['columns'] ) : array();
     $with_cancel = in_array( 'cancel', $columns );
 ?>

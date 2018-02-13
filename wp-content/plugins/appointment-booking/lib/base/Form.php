@@ -23,7 +23,7 @@ abstract class Form
 
     /**
      * Entity object.
-     * @var object
+     * @var Entity
      */
     protected $object = null;
 
@@ -110,13 +110,9 @@ abstract class Form
      */
     public function save()
     {
-        foreach ( $this->object->getFields() as $field => $value ) {
-            if ( array_key_exists( $field, $this->data ) ) {
-                $this->object->set( $field, $this->data[ $field ] );
-            }
-        }
-
-        $this->object->save();
+        $this->object
+            ->setFields( $this->data )
+            ->save();
 
         return $this->object;
     }
@@ -132,7 +128,7 @@ abstract class Form
     /**
      * Get entity object.
      *
-     * @return object
+     * @return Entity
      */
     public function getObject()
     {

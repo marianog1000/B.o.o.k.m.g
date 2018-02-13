@@ -11,9 +11,8 @@ use Bookly\Lib\Base;
  *
  * @method static array getSchedule( int $service_id ) Get schedule for service
  * @see \BooklyServiceSchedule\Lib\ProxyProviders\Local::getSchedule()
- *
  */
-class ServiceSchedule extends Base\ProxyInvoker
+abstract class ServiceSchedule extends Base\ProxyInvoker
 {
 
 }

@@ -90,13 +90,28 @@ class Controller extends Lib\Base\Controller
             get_option( 'bookly_l10n_step_done' )
         );
 
+        // Time zone switcher.
+        $current_offset = get_option('gmt_offset');
+        $tz_string = get_option('timezone_string');
+        if ( $tz_string == '' ) { // Create a UTC+- zone if no timezone string exists
+            if ( $current_offset == 0 ) {
+                $tz_string = 'UTC+0';
+            }
+            else if ( $current_offset < 0 ) {
+                $tz_string = 'UTC' . $current_offset;
+            }
+            else {
+                $tz_string = 'UTC+' . $current_offset;
+            }
+        }
+
         $custom_css = get_option( 'bookly_app_custom_styles' );
 
         // Shortcut to helper class.
         $editable = new Helper();
 
         // Render general layout.
-        $this->render( 'index', compact( 'steps', 'custom_css', 'editable' ) );
+        $this->render( 'index', compact( 'steps', 'tz_string', 'custom_css', 'editable' ) );
     }
 
     /**
@@ -111,8 +126,8 @@ class Controller extends Lib\Base\Controller
             // Info text.
             'bookly_l10n_info_cart_step',
             'bookly_l10n_info_complete_step',
-            'bookly_l10n_info_coupon_single_app',
-            'bookly_l10n_info_coupon_several_apps',
+            'bookly_l10n_info_complete_step_limit_error',
+            'bookly_l10n_info_complete_step_processing',
             'bookly_l10n_info_details_step',
             'bookly_l10n_info_details_step_guest',
             'bookly_l10n_info_payment_step_single_app',
@@ -127,17 +142,16 @@ class Controller extends Lib\Base\Controller
             'bookly_l10n_label_ccard_code',
             'bookly_l10n_label_ccard_expire',
             'bookly_l10n_label_ccard_number',
-            'bookly_l10n_label_coupon',
             'bookly_l10n_label_email',
             'bookly_l10n_label_employee',
             'bookly_l10n_label_finish_by',
             'bookly_l10n_label_name',
             'bookly_l10n_label_first_name',
             'bookly_l10n_label_last_name',
+            'bookly_l10n_label_notes',
             'bookly_l10n_label_number_of_persons',
             'bookly_l10n_label_pay_ccard',
             'bookly_l10n_label_pay_locally',
-            'bookly_l10n_label_pay_mollie',
             'bookly_l10n_label_pay_paypal',
             'bookly_l10n_label_phone',
             'bookly_l10n_label_select_date',
@@ -176,7 +190,9 @@ class Controller extends Lib\Base\Controller
             'bookly_app_show_blocked_timeslots',
             'bookly_app_show_calendar',
             'bookly_app_show_day_one_column',
+            'bookly_app_show_time_zone_switcher',
             'bookly_app_show_login_button',
+            'bookly_app_show_notes',
             'bookly_app_show_progress_tracker',
             'bookly_app_staff_name_with_price',
             'bookly_cst_required_phone',

@@ -19,9 +19,7 @@ class Backend
         $this->apearanceController     = Modules\Appearance\Controller::getInstance();
         $this->appointmentsController  = Modules\Appointments\Controller::getInstance();
         $this->calendarController      = Modules\Calendar\Controller::getInstance();
-        $this->couponsController       = Modules\Coupons\Controller::getInstance();
         $this->customerController      = Modules\Customers\Controller::getInstance();
-        $this->customFieldsController  = Modules\CustomFields\Controller::getInstance();
         $this->debugController         = Modules\Debug\Controller::getInstance();
         $this->notificationsController = Modules\Notifications\Controller::getInstance();
         $this->paymentController       = Modules\Payments\Controller::getInstance();
@@ -91,26 +89,35 @@ class Backend
                 $payments       = __( 'Payments',      'bookly' );
                 $appearance     = __( 'Appearance',    'bookly' );
                 $settings       = __( 'Settings',      'bookly' );
-                $coupons        = __( 'Coupons',       'bookly' );
-                $custom_fields  = __( 'Custom Fields', 'bookly' );
+                $messages       = __( 'Messages',      'bookly' );
 
                 add_submenu_page( 'bookly-menu', $calendar, $calendar, 'read',
                     Modules\Calendar\Controller::page_slug, array( $this->calendarController, 'index' ) );
-					
-				if ( $current_user->has_cap( 'administrator' )) {	
-                add_submenu_page( 'bookly-menu', $appointments, $appointments, 'administrator',
-                    Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
-				}else{
-					if ( $current_user->has_cap( 'subscriber' )) {	
-					add_submenu_page( 'bookly-menu', $appointments, $appointments, 'subscriber',
-						Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
-					}
-				}
+               
+		if ( $current_user->has_cap( 'administrator' )) {	
+                     add_submenu_page( 'bookly-menu', $appointments, $appointments, 'administrator',
+                        Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
+		}else{
+		     if ( $current_user->has_cap( 'subscriber' )) {	
+			add_submenu_page( 'bookly-menu', $appointments, $appointments, 'subscriber',
+			     Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
+                     }
+		}
 				
 				
                 Lib\Proxy\Shared::renderBooklyMenuAfterAppointments();
                 if ( $current_user->has_cap( 'administrator' )) {
                     add_submenu_page( 'bookly-menu', $staff_members, $staff_members, 'subscriber',
+
+
+
+
+
+                    Modules\Appointments\Controller::page_slug, array( $this->appointmentsController, 'index' ) );
+                Lib\Proxy\Locations::addBooklyMenuItem();
+                Lib\Proxy\Packages::addBooklyMenuItem();
+                if ( $current_user->has_cap( 'administrator' ) ) {
+                    add_submenu_page( 'bookly-menu', $staff_members, $staff_members, 'manage_options',
                         Modules\Staff\Controller::page_slug, array( $this->staffController, 'index' ) );
                 } else {
                     if ( get_option( 'bookly_gen_allow_staff_edit_profile' ) == 1 ) {
@@ -122,6 +129,7 @@ class Backend
                     Modules\Services\Controller::page_slug, array( $this->serviceController, 'index' ) );
                 add_submenu_page( 'bookly-menu', $customers, $customers, 'manage_options',
                     Modules\Customers\Controller::page_slug, array( $this->customerController, 'index' ) );
+                Lib\Proxy\CustomerGroups::addBooklyMenuItem();
                 add_submenu_page( 'bookly-menu', $notifications, $notifications, 'manage_options',
                     Modules\Notifications\Controller::page_slug, array( $this->notificationsController, 'index' ) );
                 add_submenu_page( 'bookly-menu', $sms, $sms, 'manage_options',
@@ -130,13 +138,11 @@ class Backend
                     Modules\Payments\Controller::page_slug, array( $this->paymentController, 'index' ) );
                 add_submenu_page( 'bookly-menu', $appearance, $appearance, 'manage_options',
                     Modules\Appearance\Controller::page_slug, array( $this->apearanceController, 'index' ) );
-                add_submenu_page( 'bookly-menu', $custom_fields, $custom_fields, 'manage_options',
-                    Modules\CustomFields\Controller::page_slug, array( $this->customFieldsController, 'index' ) );
-                add_submenu_page( 'bookly-menu', $coupons, $coupons, 'manage_options',
-                    Modules\Coupons\Controller::page_slug, array( $this->couponsController, 'index' ) );
+                Lib\Proxy\Coupons::addBooklyMenuItem();
+                Lib\Proxy\CustomFields::addBooklyMenuItem();
                 add_submenu_page( 'bookly-menu', $settings, $settings, 'manage_options',
                     Modules\Settings\Controller::page_slug, array( $this->settingsController, 'index' ) );
-                add_submenu_page( 'bookly-menu', __( 'Messages', 'bookly' ), __( 'Messages', 'bookly' ), 'manage_options',
+                add_submenu_page( 'bookly-menu', $messages, $messages, 'manage_options',
                     Modules\Message\Controller::page_slug, array( $this->messageController, 'index' ) );
 
                 if ( isset ( $_GET['page'] ) && $_GET['page'] == 'bookly-debug' ) {

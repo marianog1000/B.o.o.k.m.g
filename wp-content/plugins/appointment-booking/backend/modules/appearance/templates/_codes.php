@@ -4,7 +4,7 @@ use Bookly\Lib;
 
 $codes = array(
     array( 'code' => 'appointments_count', 'description' => __( 'total quantity of appointments in cart', 'bookly' ), 'flags' => array( 'step' => 7, 'extra_codes' => true ) ),
-    array( 'code' => 'booking_number',     'description' => __( 'booking number', 'bookly' ),                         'flags' => array( 'step' => 8 ) ),
+    array( 'code' => 'booking_number',     'description' => __( 'booking number', 'bookly' ),                         'flags' => array( 'step' => 8, 'extra_codes' => true ) ),
     array( 'code' => 'category_name',      'description' => __( 'name of category', 'bookly' ) ),
     array( 'code' => 'login_form',         'description' => __( 'login form', 'bookly' ),                             'flags' => array( 'step' => 6, 'extra_codes' => true ) ),
     array( 'code' => 'number_of_persons',  'description' => __( 'number of persons', 'bookly' ) ),

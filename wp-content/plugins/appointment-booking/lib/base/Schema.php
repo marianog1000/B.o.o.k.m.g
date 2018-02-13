@@ -118,4 +118,5 @@ abstract class Schema
 
         return $wpdb->rows_affected;
     }
+
 }

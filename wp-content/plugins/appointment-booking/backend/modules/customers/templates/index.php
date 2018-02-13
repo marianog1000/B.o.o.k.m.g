@@ -1,4 +1,6 @@
-<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly ?>
+<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+use Bookly\Lib;
+?>
 <div id="bookly-tbs" class="wrap">
     <div class="bookly-tbs-body">
         <div class="page-header text-right clearfix">
@@ -31,12 +33,13 @@
                 <table id="bookly-customers-list" class="table table-striped" width="100%">
                     <thead>
                         <tr>
-                            <th><?php echo \Bookly\Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_name' ) ?></th>
-                            <th><?php echo \Bookly\Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_first_name' ) ?></th>
-                            <th><?php echo \Bookly\Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_last_name' ) ?></th>
+                            <th><?php echo esc_html( get_option( 'bookly_l10n_label_name' ) ) ?></th>
+                            <th><?php echo esc_html( get_option( 'bookly_l10n_label_first_name' ) ) ?></th>
+                            <th><?php echo esc_html( get_option( 'bookly_l10n_label_last_name' ) ) ?></th>
                             <th><?php _e( 'User', 'bookly' ) ?></th>
-                            <th><?php echo \Bookly\Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_phone' ) ?></th>
-                            <th><?php echo \Bookly\Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_email' ) ?></th>
+                            <?php Lib\Proxy\CustomerGroups::renderCustomerTableHeader() ?>
+                            <th><?php echo esc_html( get_option( 'bookly_l10n_label_phone' ) ) ?></th>
+                            <th><?php echo esc_html( get_option( 'bookly_l10n_label_email' ) ) ?></th>
                             <th><?php _e( 'Notes', 'bookly' ) ?></th>
                             <th><?php _e( 'Last appointment', 'bookly' ) ?></th>
                             <th><?php _e( 'Total appointments', 'bookly' ) ?></th>
@@ -48,7 +51,7 @@
                 </table>
 
                 <div class="text-right bookly-margin-top-lg">
-                    <?php \Bookly\Lib\Utils\Common::deleteButton() ?>
+                    <?php Lib\Utils\Common::deleteButton() ?>
                 </div>
             </div>
         </div>

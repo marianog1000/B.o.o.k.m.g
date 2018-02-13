@@ -44,12 +44,12 @@ class Google
     public function loadByStaff( Entities\Staff $staff )
     {
         $this->staff = $staff;
-        if ( ! Config::booklyExpired() && $staff->get( 'google_data' ) ) {
+        if ( ! Config::booklyExpired() && $staff->getGoogleData() ) {
             try {
-                $this->client->setAccessToken( $staff->get( 'google_data' ) );
+                $this->client->setAccessToken( $staff->getGoogleData() );
                 if ( $this->client->isAccessTokenExpired() ) {
                     $this->client->refreshToken( $this->client->getRefreshToken() );
-                    $staff->set( 'google_data', $this->client->getAccessToken() );
+                    $staff->setGoogleData( $this->client->getAccessToken() );
                     $staff->save();
                 }
 
@@ -113,7 +113,7 @@ class Google
     {
         try {
             if ( in_array( $this->getCalendarAccess(), array( 'writer', 'owner' ) ) ) {
-                $this->event = $this->service->events->get( $this->getCalendarID(), $appointment->get( 'google_event_id' ) );
+                $this->event = $this->service->events->get( $this->getCalendarID(), $appointment->getGoogleEventId() );
 
                 $this->handleEventData( $appointment );
 
@@ -226,6 +226,7 @@ class Google
                             0,
                             0,
                             1,
+                            0,
                             $event_start_date->format( 'Y-m-d H:i:s' ),
                             $event_end_date->format( 'Y-m-d H:i:s' ),
                             0,
@@ -289,13 +290,13 @@ class Google
     public function revokeToken()
     {
         try {
-            $this->client->revokeToken( $this->staff->get( 'google_data' ) );
+            $this->client->revokeToken( $this->staff->getGoogleData() );
         } catch ( \Exception $e ) {
             $this->errors[] = $e->getMessage();
         }
         $this->staff
-            ->set( 'google_data', null )
-            ->set( 'google_calendar_id', null )
+            ->setGoogleData( null )
+            ->setGoogleCalendarId( null )
             ->save();
     }
 
@@ -350,49 +351,60 @@ class Google
     {
         $start_datetime = new \Google_Service_Calendar_EventDateTime();
         $start_datetime->setDateTime(
-            Slots\DatePoint::fromStr( $appointment->get( 'start_date' ) )->format( \DateTime::RFC3339 )
+            Slots\DatePoint::fromStr( $appointment->getStartDate() )->format( \DateTime::RFC3339 )
         );
 
         $end_datetime = new \Google_Service_Calendar_EventDateTime();
         $end_datetime->setDateTime(
-            Slots\DatePoint::fromStr( $appointment->get( 'end_date' ) )->modify( (int) $appointment->get( 'extras_duration' ) )->format( \DateTime::RFC3339 )
+            Slots\DatePoint::fromStr( $appointment->getEndDate() )->modify( (int) $appointment->getExtrasDuration() )->format( \DateTime::RFC3339 )
         );
 
-        $service = Entities\Service::find( $appointment->get( 'service_id' ) );
-        $description  = __( 'Service', 'bookly' ) . ': ' . $service->get( 'title' ) . PHP_EOL;
+        if ( $appointment->getServiceId() ) {
+            $service = Entities\Service::find( $appointment->getServiceId() );
+        } else {
+            // Custom service.
+            $service = new Entities\Service();
+            $service
+                ->setTitle( $appointment->getCustomServiceName() )
+                ->setPrice( $appointment->getCustomServicePrice() );
+        }
+        $description  = __( 'Service', 'bookly' ) . ': ' . $service->getTitle() . PHP_EOL;
         $client_names = array();
         foreach ( $appointment->getCustomerAppointments() as $ca ) {
             $description .= sprintf(
                 "%s: %s\n%s: %s\n%s: %s\n",
-                __( 'Name',  'bookly' ), $ca->customer->get( 'full_name' ),
-                __( 'Email', 'bookly' ), $ca->customer->get( 'email' ),
-                __( 'Phone', 'bookly' ), $ca->customer->get( 'phone' )
+                __( 'Name',  'bookly' ), $ca->customer->getFullName(),
+                __( 'Email', 'bookly' ), $ca->customer->getEmail(),
+                __( 'Phone', 'bookly' ), $ca->customer->getPhone()
             );
-            $description .= $ca->getFormattedCustomFields( 'text' ) . PHP_EOL;
-            if ( $ca->get( 'extras' ) != '[]' ) {
-                $appointment_extras = json_decode( $ca->get( 'extras' ), true );
+            if ( Config::customFieldsActive() ) {
+                $description .= Proxy\CustomFields::getFormatted( $ca, 'text' ) . PHP_EOL;
+            }
+            if ( Config::serviceExtrasActive() ) {
+                $appointment_extras = json_decode( $ca->getExtras(), true );
                 $extras = implode( ', ', array_map( function ( $extra ) use ( $appointment_extras ) {
-                    $count = $appointment_extras[ $extra->get( 'id' ) ];
+                    /** @var \BooklyServiceExtras\Lib\Entities\ServiceExtra $extra */
+                    $count = $appointment_extras[ $extra->getId() ];
 
-                    return ( $count > 1 ? $count . ' × ' : '' ) . $extra->get( 'title' );
+                    return ( $count > 1 ? $count . ' × ' : '' ) . $extra->getTitle();
                 }, (array) Proxy\ServiceExtras::findByIds( array_keys( $appointment_extras ) ) ) );
-                if ( ! empty( $extras ) ) {
+                if ( $extras != '' ) {
                     $description .= __( 'Extras', 'bookly' ) . ': ' . $extras . PHP_EOL;
                 }
             }
-            $client_names[] = $ca->customer->get( 'full_name' );
+            $client_names[] = $ca->customer->getFullName();
         }
 
-        $staff = Entities\Staff::find( $appointment->get( 'staff_id' ) );
+        $staff = Entities\Staff::find( $appointment->getStaffId() );
 
         $title = strtr( get_option( 'bookly_gc_event_title', '{service_name}' ), array(
-            '{service_name}' => $service->get( 'title' ),
+            '{service_name}' => $service->getTitle(),
             '{client_names}' => implode( ', ', $client_names ),
-            '{staff_name}'   => $staff->get( 'full_name' ),
+            '{staff_name}'   => $staff->getFullName(),
             /** @deprecate [[CODE]] */
-            '[[SERVICE_NAME]]' => $service->get( 'title' ),
+            '[[SERVICE_NAME]]' => $service->getTitle(),
             '[[CLIENT_NAMES]]' => implode( ', ', $client_names ),
-            '[[STAFF_NAME]]'   => $staff->get( 'full_name' ),
+            '[[STAFF_NAME]]'   => $staff->getFullName(),
         ) );
 
         $this->event->setStart( $start_datetime );
@@ -402,9 +414,9 @@ class Google
 
         $extended_property = new \Google_Service_Calendar_EventExtendedProperties();
         $extended_property->setPrivate( array(
-            'customers'      => json_encode( array_map( function( $ca ) { return $ca->customer->get( 'id' ); }, $appointment->getCustomerAppointments() ) ),
-            'service_id'     => $service->get( 'id' ),
-            'appointment_id' => $appointment->get( 'id' ),
+            'customers'      => json_encode( array_map( function( $ca ) { return $ca->customer->getId(); }, $appointment->getCustomerAppointments() ) ),
+            'service_id'     => $service->getId(),
+            'appointment_id' => $appointment->getId(),
         ) );
         $this->event->setExtendedProperties( $extended_property );
     }
@@ -414,7 +426,7 @@ class Google
      */
     private function getCalendarID()
     {
-        return $this->staff->get( 'google_calendar_id' ) ?: 'primary';
+        return $this->staff->getGoogleCalendarId() ?: 'primary';
     }
 
     /**

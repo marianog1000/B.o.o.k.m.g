@@ -20,24 +20,18 @@ class Frontend
         // Init controllers.
         $this->bookingController         = Modules\Booking\Controller::getInstance();
         $this->customerProfileController = Modules\CustomerProfile\Controller::getInstance();
+        $this->cancelConfirmController   = Modules\CancellationConfirmation\Controller::getInstance();
         $this->wooCommerceController     = Modules\WooCommerce\Controller::getInstance();
-        if ( Lib\Config::paymentTypeEnabled( Lib\Entities\Payment::TYPE_MOLLIE ) ) {
-            $this->mollieController = Modules\Mollie\Controller::getInstance();
-        }
-        if ( Lib\Config::paymentTypeEnabled( Lib\Entities\Payment::TYPE_PAYPAL ) ) {
+
+        if ( Lib\Config::paypalEnabled() ) {
             $this->paypalController = Modules\Paypal\Controller::getInstance();
-        }
-        if ( Lib\Config::paymentTypeEnabled( Lib\Entities\Payment::TYPE_PAYSON ) ) {
-            $this->paysonController = Modules\Payson\Controller::getInstance();
-        }
-        if ( Lib\Config::paymentTypeEnabled( Lib\Entities\Payment::TYPE_2CHECKOUT ) ) {
-            $this->twocheckoutController = Modules\TwoCheckout\Controller::getInstance();
         }
         // Register shortcodes.
         add_shortcode( 'bookly-form', array( $this->bookingController, 'renderShortCode' ) );
         /** @deprecated [ap-booking] */
         add_shortcode( 'ap-booking', array( $this->bookingController, 'renderShortCode' ) );
         add_shortcode( 'bookly-appointments-list', array( $this->customerProfileController, 'renderShortCode' ) );
+        add_shortcode( 'bookly-cancellation-confirmation', array( $this->cancelConfirmController, 'renderShortCode' ) );
     }
 
     /**
@@ -107,7 +101,7 @@ class Frontend
             @session_start();
         }
 
-        // Payments ( PayPal Express Checkout, 2Checkout, Payson, Mollie )
+        // Payments ( PayPal Express Checkout and etc. )
         if ( isset( $_REQUEST['bookly_action'] ) ) {
             // Disable caching.
             Lib\Utils\Common::noCache();
@@ -125,39 +119,6 @@ class Frontend
                     break;
                 case 'paypal-ec-error':
                     $this->paypalController->ecError();
-                    break;
-                // 2Checkout.
-                case '2checkout-approved':
-                    $this->twocheckoutController->approved();
-                    break;
-                case '2checkout-error':
-                    $this->twocheckoutController->error();
-                    break;
-                // Payson.
-                case 'payson-checkout':
-                    $this->paysonController->checkout();
-                    break;
-                case 'payson-ipn':
-                    Lib\Payment\Payson::ipn();
-                    break;
-                case 'payson-cancel':
-                    $this->paysonController->cancel();
-                    break;
-                case 'payson-response':
-                    $this->paysonController->response();
-                    break;
-                case 'payson-error':
-                    $this->paysonController->error();
-                    break;
-                // Mollie.
-                case 'mollie-checkout':
-                    $this->mollieController->checkout();
-                    break;
-                case 'mollie-response':
-                    $this->mollieController->response();
-                    break;
-                case 'mollie-ipn':
-                    Lib\Payment\Mollie::ipn();
                     break;
                 default:
                     Lib\Proxy\Shared::handleRequestAction( $_REQUEST['bookly_action'] );

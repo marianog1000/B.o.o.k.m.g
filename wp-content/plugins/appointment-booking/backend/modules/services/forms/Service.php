@@ -5,6 +5,8 @@ use Bookly\Lib;
 
 /**
  * Class Service
+ * @method Lib\Entities\Service getObject
+ *
  * @package Bookly\Backend\Modules\Services\Forms
  */
 class Service extends Lib\Base\Form
@@ -26,12 +28,19 @@ class Service extends Lib\Base\Form
             'padding_right',
             'package_life_time',
             'package_size',
+            'package_unassigned',
+            'appointments_limit',
+            'limit_period',
             'info',
+            'start_time_info',
+            'end_time_info',
             'type',
             'sub_services',
             'staff_preference',
-            'positions',
+            'recurrence_enabled',
+            'recurrence_frequencies',
             'visibility',
+            'positions',
         );
 
         $this->setFields( $fields );
@@ -63,9 +72,12 @@ class Service extends Lib\Base\Form
             $this->data['color'] = sprintf( '#%06X', mt_rand( 0, 0x64FFFF ) );
         }
 
-        if ( $this->data['type'] == Lib\Entities\Service::TYPE_SIMPLE || ! array_key_exists( 'sub_services', $this->data ) || empty( $this->data['sub_services'] ) || $this->data['sub_services'][0] == 0 ) {
+        if ( $this->data['type'] == Lib\Entities\Service::TYPE_SIMPLE ) {
             Lib\Entities\SubService::query()->delete()->where( 'service_id', $this->data['id'] )->execute();
-            $this->data['sub_services'] = '[]';
+        }
+
+        if ( $this->data['limit_period'] == 'off' || ! $this->data['appointments_limit'] ) {
+            $this->data['appointments_limit'] = null;
         }
 
         $this->data = Lib\Proxy\Shared::prepareUpdateService( $this->data );
@@ -77,18 +89,18 @@ class Service extends Lib\Base\Form
 
         /** @var Lib\Entities\StaffPreferenceOrder[] $staff_preferences */
         $staff_preferences = Lib\Entities\StaffPreferenceOrder::query()
-            ->where( 'service_id', $service->get( 'id' ) )
+            ->where( 'service_id', $service->getId() )
             ->indexBy( 'staff_id' )
             ->find();
         foreach ( (array) $this->data['positions'] as $position => $staff_id ) {
             if ( array_key_exists( $staff_id, $staff_preferences ) ) {
-                $staff_preferences[ $staff_id ]->set( 'position', $position )->save();
+                $staff_preferences[ $staff_id ]->setPosition( $position )->save();
             } else {
                 $preference = new Lib\Entities\StaffPreferenceOrder();
                 $preference
-                    ->set( 'service_id', $service->get( 'id' ) )
-                    ->set( 'staff_id',   $staff_id )
-                    ->set( 'position', $position )
+                    ->setServiceId( $service->getId() )
+                    ->setStaffId( $staff_id )
+                    ->setPosition( $position )
                     ->save();
             }
         }

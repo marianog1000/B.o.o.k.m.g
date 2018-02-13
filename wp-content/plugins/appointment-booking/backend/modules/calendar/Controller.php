@@ -2,6 +2,7 @@
 namespace Bookly\Backend\Modules\Calendar;
 
 use Bookly\Lib;
+use Bookly\Lib\DataHolders\Booking as DataHolders;
 
 /**
  * Class Controller
@@ -23,7 +24,7 @@ class Controller extends Lib\Base\Controller
 
         $this->enqueueStyles( array(
             'module'   => array( 'css/fullcalendar.min.css', ),
-            'backend'  => array( 'bootstrap/css/bootstrap-theme.min.css', ),
+            'backend'  => array( 'bootstrap/css/bootstrap-theme.min.css' ),
         ) );
 
         $this->enqueueScripts( array(
@@ -72,7 +73,13 @@ class Controller extends Lib\Base\Controller
                 'active' => (int) Lib\Config::waitingListActive(),
                 'title'  => __( 'On waiting list', 'bookly' ),
             ),
+            'packages'    => array(
+                'active' => (int) Lib\Config::packagesActive(),
+                'title'  => __( 'Package', 'bookly' ),
+            ),
         ) );
+
+        Lib\Proxy\Shared::enqueueAssetsForAppointmentForm();
 
         $this->render( 'calendar', compact( 'staff_members' ) );
     }
@@ -98,10 +105,11 @@ class Controller extends Lib\Base\Controller
                 ->whereIn( 'id', $staff_ids )
                 ->find();
         } else {
-            $staff_members[] = Lib\Entities\Staff::query()
+            $staff_member = Lib\Entities\Staff::query()
                 ->where( 'wp_user_id', get_current_user_id() )
                 ->findOne();
-            $staff_ids = array( current( $staff_members )->get( 'id' ) );
+            $staff_members[] = $staff_member;
+            $staff_ids = array( $staff_member->getId() );
         }
         // Load special days.
         $special_days = array();
@@ -111,7 +119,7 @@ class Controller extends Lib\Base\Controller
 
         foreach ( $staff_members as $staff ) {
             /** @var Lib\Entities\Staff $staff */
-            $result = array_merge( $result, $this->_getAppointmentsForFC( $staff->get( 'id' ), $start_date, $end_date ) );
+            $result = array_merge( $result, $this->_getAppointmentsForFC( $staff->getId(), $start_date, $end_date ) );
 
             // Schedule.
             $items = $staff->getScheduleItems();
@@ -120,7 +128,7 @@ class Controller extends Lib\Base\Controller
             $last_end = clone $day;
             $last_end->sub( $one_day );
             $w = (int) $day->format( 'w' );
-            $end_time = $items[ $w > 0 ? $w : 7 ]->get( 'end_time' );
+            $end_time = $items[ $w > 0 ? $w : 7 ]->getEndTime();
             if ( $end_time !== null ) {
                 $end_time = explode( ':', $end_time );
                 $last_end->setTime( $end_time[0], $end_time[1] );
@@ -131,63 +139,69 @@ class Controller extends Lib\Base\Controller
             while ( $day <= $end_date ) {
                 $start = $last_end->format( 'Y-m-d H:i:s' );
                 // Check if $day is Special Day for current staff.
-                if ( isset( $special_days[ $staff->get( 'id' ) ][ $day->format( 'Y-m-d' ) ] ) ) {
-                    $sp_days = $special_days[ $staff->get( 'id' ) ][ $day->format( 'Y-m-d' ) ];
-                    $sp_day  = array_shift( $sp_days );
-                    $end = $sp_day['date'] . ' ' . $sp_day['start_time'];
+                if ( isset( $special_days[ $staff->getId() ][ $day->format( 'Y-m-d' ) ] ) ) {
+                    $sp_days = $special_days[ $staff->getId() ][ $day->format( 'Y-m-d' ) ];
+                    $end = $sp_days[0]['date'] . ' ' . $sp_days[0]['start_time'];
                     if ( $start < $end ) {
                         $result[] = array(
                             'start'     => $start,
                             'end'       => $end,
                             'rendering' => 'background',
-                            'staffId'   => $staff->get( 'id' ),
+                            'staffId'   => $staff->getId(),
                         );
-                        // Check if the first break exists.
-                        if ( isset( $sp_day['break_start'] ) ) {
-                            $result[] = array(
-                                'start'     => $sp_day['date'] . ' ' . $sp_day['break_start'],
-                                'end'       => $sp_day['date'] . ' ' . $sp_day['break_end'],
-                                'rendering' => 'background',
-                                'staffId'   => $staff->get( 'id' ),
-                            );
-                        }
                     }
                     // Breaks.
                     foreach ( $sp_days as $sp_day ) {
+                        $break_start = date(
+                            'Y-m-d H:i:s',
+                            strtotime( $sp_day['date'] ) + Lib\Utils\DateTime::timeToSeconds( $sp_day['break_start'] )
+                        );
+                        $break_end = date(
+                            'Y-m-d H:i:s',
+                            strtotime( $sp_day['date'] ) + Lib\Utils\DateTime::timeToSeconds( $sp_day['break_end'] )
+                        );
                         $result[] = array(
-                            'start'     => $sp_day['date'] . ' ' . $sp_day['break_start'],
-                            'end'       => $sp_day['date'] . ' ' . $sp_day['break_end'],
+                            'start'     => $break_start,
+                            'end'       => $break_end,
                             'rendering' => 'background',
-                            'staffId'   => $staff->get( 'id' ),
+                            'staffId'   => $staff->getId(),
                         );
                     }
-                    $end_time = explode( ':', $sp_day['end_time'] );
+                    $end_time = explode( ':', $sp_days[0]['end_time'] );
                     $last_end = clone $day;
                     $last_end->setTime( $end_time[0], $end_time[1] );
                 } else {
                     /** @var Lib\Entities\StaffScheduleItem $item */
                     $item = $items[ (int) $day->format( 'w' ) + 1 ];
-                    if ( $item->get( 'start_time' ) && ! $staff->isOnHoliday( $day ) ) {
-                        $end = $day->format( 'Y-m-d ' . $item->get( 'start_time' ) );
+                    if ( $item->getStartTime() && ! $staff->isOnHoliday( $day ) ) {
+                        $end = $day->format( 'Y-m-d ' . $item->getStartTime() );
                         if ( $start < $end ) {
                             $result[] = array(
                                 'start'     => $start,
                                 'end'       => $end,
                                 'rendering' => 'background',
-                                'staffId'   => $staff->get( 'id' ),
+                                'staffId'   => $staff->getId(),
                             );
                         }
                         $last_end = clone $day;
-                        $end_time = explode( ':', $item->get( 'end_time' ) );
+                        $end_time = explode( ':', $item->getEndTime() );
                         $last_end->setTime( $end_time[0], $end_time[1] );
 
                         // Breaks.
                         foreach ( $item->getBreaksList() as $break ) {
+                            $break_start = date(
+                                'Y-m-d H:i:s',
+                                $day->getTimestamp() + Lib\Utils\DateTime::timeToSeconds( $break['start_time'] )
+                            );
+                            $break_end = date(
+                                'Y-m-d H:i:s',
+                                $day->getTimestamp() + Lib\Utils\DateTime::timeToSeconds( $break['end_time'] )
+                            );
                             $result[] = array(
-                                'start'     => $day->format( 'Y-m-d ' . $break['start_time'] ),
-                                'end'       => $day->format( 'Y-m-d ' . $break['end_time'] ),
+                                'start'     => $break_start,
+                                'end'       => $break_end,
                                 'rendering' => 'background',
-                                'staffId'   => $staff->get( 'id' ),
+                                'staffId'   => $staff->getId(),
                             );
                         }
                     } else {
@@ -195,7 +209,7 @@ class Controller extends Lib\Base\Controller
                             'start'     => $last_end->format( 'Y-m-d H:i:s' ),
                             'end'       => $day->format( 'Y-m-d 24:00:00' ),
                             'rendering' => 'background',
-                            'staffId'   => $staff->get( 'id' ),
+                            'staffId'   => $staff->getId(),
                         );
                         $last_end = clone $day;
                         $last_end->setTime( 24, 0 );
@@ -210,7 +224,7 @@ class Controller extends Lib\Base\Controller
                     'start'     => $last_end->format( 'Y-m-d H:i:s' ),
                     'end'       => $last_end->format( 'Y-m-d 24:00:00' ),
                     'rendering' => 'background',
-                    'staffId'   => $staff->get( 'id' ),
+                    'staffId'   => $staff->getId(),
                 );
             }
         }
@@ -223,11 +237,13 @@ class Controller extends Lib\Base\Controller
      */
     public function executeGetDataForAppointmentForm()
     {
+        $type = $this->getParameter( 'type', false ) == 'package' ? Lib\Entities\Service::TYPE_PACKAGE : Lib\Entities\Service::TYPE_SIMPLE;
         $result = array(
             'staff'         => array(),
             'customers'     => array(),
             'start_time'    => array(),
             'end_time'      => array(),
+            'week_days'     => array(),
             'time_interval' => Lib\Config::getTimeSlotLength(),
             'status'        => array(
                 'items' => array(
@@ -236,8 +252,7 @@ class Controller extends Lib\Base\Controller
                     'cancelled'  => Lib\Entities\CustomerAppointment::statusToString( Lib\Entities\CustomerAppointment::STATUS_CANCELLED ),
                     'rejected'   => Lib\Entities\CustomerAppointment::statusToString( Lib\Entities\CustomerAppointment::STATUS_REJECTED ),
                     'waitlisted' => Lib\Entities\CustomerAppointment::statusToString( Lib\Entities\CustomerAppointment::STATUS_WAITLISTED ),
-                ),
-                'default' => get_option( 'bookly_gen_default_appointment_status' ),
+                )
             ),
         );
 
@@ -246,49 +261,64 @@ class Controller extends Lib\Base\Controller
             ? Lib\Entities\Staff::query()->sortBy( 'position' )->find()
             : Lib\Entities\Staff::query()->where( 'wp_user_id', get_current_user_id() )->find();
 
+        $custom_service_max_capacity = Lib\Config::groupBookingActive() ? 9999 : 1;
         /** @var Lib\Entities\Staff $staff_member */
         foreach ( $staff_members as $staff_member ) {
             $services = array();
-            foreach ( $staff_member->getStaffServices() as $staff_service ) {
+            if ( $type == Lib\Entities\Service::TYPE_SIMPLE ) {
                 $services[] = array(
-                    'id'       => $staff_service->service->get( 'id' ),
-                    'title'    => sprintf(
-                        '%s (%s)',
-                        $staff_service->service->get( 'title' ),
-                        Lib\Utils\DateTime::secondsToInterval( $staff_service->service->get( 'duration' ) )
-                    ),
-                    'duration'      => $staff_service->service->get( 'duration' ),
-                    'capacity_min'  => $staff_service->get( 'capacity_min' ),
-                    'capacity_max'  => $staff_service->get( 'capacity_max' )
+                    'id'           => null,
+                    'title'        => __( 'Custom', 'bookly' ),
+                    'duration'     => Lib\Config::getTimeSlotLength(),
+                    'capacity_min' => 1,
+                    'capacity_max' => $custom_service_max_capacity,
                 );
             }
+            foreach ( $staff_member->getStaffServices( $type ) as $staff_service ) {
+                $sub_services = $staff_service->service->getSubServices();
+                if ( $type == Lib\Entities\Service::TYPE_SIMPLE || ! empty( $sub_services ) ) {
+                    $services[] = array(
+                        'id'           => $staff_service->service->getId(),
+                        'title'        => sprintf(
+                            '%s (%s)',
+                            $staff_service->service->getTitle(),
+                            Lib\Utils\DateTime::secondsToInterval( $staff_service->service->getDuration() )
+                        ),
+                        'duration'     => $staff_service->service->getDuration(),
+                        'capacity_min' => Lib\Config::groupBookingActive() ? $staff_service->getCapacityMin() : 1,
+                        'capacity_max' => Lib\Config::groupBookingActive() ? $staff_service->getCapacityMax() : 1,
+                    );
+                }
+            }
             $locations = array();
-            foreach ( (array) Lib\Proxy\Locations::findByStaffId( $staff_member->get( 'id' ) ) as $location ) {
+            foreach ( (array) Lib\Proxy\Locations::findByStaffId( $staff_member->getId() ) as $location ) {
                 $locations[] = array(
-                    'id'   => $location->get( 'id' ),
-                    'name' => $location->get( 'name' ),
+                    'id'   => $location->getId(),
+                    'name' => $location->getName(),
                 );
             }
             $result['staff'][] = array(
-                'id'        => $staff_member->get( 'id' ),
-                'full_name' => $staff_member->get( 'full_name' ),
+                'id'        => $staff_member->getId(),
+                'full_name' => $staff_member->getFullName(),
                 'services'  => $services,
                 'locations' => $locations,
             );
         }
 
+        /** @var Lib\Entities\Customer $customer */
         // Customers list.
         foreach ( Lib\Entities\Customer::query()->sortBy( 'full_name' )->find() as $customer ) {
-            $name = $customer->get( 'full_name' );
-            if ( $customer->get( 'email' ) != '' || $customer->get( 'phone' ) != '' ) {
-                $name .= ' (' . trim( $customer->get( 'email' ) . ', ' . $customer->get( 'phone' ) , ', ' ) . ')';
+            $name = $customer->getFullName();
+            if ( $customer->getEmail() != '' || $customer->getPhone() != '' ) {
+                $name .= ' (' . trim( $customer->getEmail() . ', ' . $customer->getPhone(), ', ' ) . ')';
             }
 
             $result['customers'][] = array(
-                'id'                => $customer->get( 'id' ),
-                'name'              => $name,
-                'custom_fields'     => array(),
-                'number_of_persons' => 1,
+                'id'                 => $customer->getId(),
+                'name'               => $name,
+                'status'             => Lib\Proxy\CustomerGroups::prepareDefaultAppointmentStatus( get_option( 'bookly_gen_default_appointment_status' ), $customer->getGroupId(), 'backend' ),
+                'custom_fields'      => array(),
+                'number_of_persons'  => 1,
             );
         }
 
@@ -301,13 +331,23 @@ class Controller extends Lib\Base\Controller
         while ( $time_start <= $time_end ) {
             $slot = array(
                 'value' => Lib\Utils\DateTime::buildTimeString( $time_start, false ),
-                'title' => Lib\Utils\DateTime::formatTime( $time_start )
+                'title' => Lib\Utils\DateTime::formatTime( $time_start ),
             );
             if ( $time_start < DAY_IN_SECONDS ) {
                 $result['start_time'][] = $slot;
             }
             $result['end_time'][] = $slot;
             $time_start += $ts_length;
+        }
+
+        $days_times = Lib\Config::getDaysAndTimes();
+        $weekdays  = array( 1 => 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', );
+        foreach ( $days_times['days'] as $index => $abbrev ) {
+            $result['week_days'][] = $weekdays[ $index ];
+        }
+
+        if ( $type == Lib\Entities\Service::TYPE_PACKAGE ) {
+            $result = Lib\Proxy\Packages::prepareDataForAppointmentForm( $result );
         }
 
         wp_send_json( $result );
@@ -324,13 +364,13 @@ class Controller extends Lib\Base\Controller
         if ( $appointment->load( $this->getParameter( 'id' ) ) ) {
             $response['success'] = true;
 
-            $info = Lib\Entities\Appointment::query( 'a' )
-                ->select( 'ss.capacity_min as min_capacity,
-                    ss.capacity_max AS max_capacity,
-                    SUM(ca.number_of_persons) AS total_number_of_persons,
+            $query = Lib\Entities\Appointment::query( 'a' )
+                ->select( 'SUM(ca.number_of_persons) AS total_number_of_persons,
                     a.staff_id,
                     a.staff_any,
                     a.service_id,
+                    a.custom_service_name,
+                    a.custom_service_price,
                     a.start_date,
                     a.end_date,
                     a.internal_note,
@@ -338,27 +378,36 @@ class Controller extends Lib\Base\Controller
                     a.location_id' )
                 ->leftJoin( 'CustomerAppointment', 'ca', 'ca.appointment_id = a.id' )
                 ->leftJoin( 'StaffService', 'ss', 'ss.staff_id = a.staff_id AND ss.service_id = a.service_id' )
-                ->where( 'a.id', $appointment->get( 'id' ) )
-                ->fetchRow();
+                ->where( 'a.id', $appointment->getId() );
+            if ( Lib\Config::groupBookingActive() ) {
+                $query->addSelect( 'ss.capacity_min AS min_capacity, ss.capacity_max AS max_capacity' );
+            } else {
+                $query->addSelect( '1 AS min_capacity, 1 AS max_capacity' );
+            }
 
+            $info = $query->fetchRow();
             $response['data']['total_number_of_persons'] = $info['total_number_of_persons'];
-            $response['data']['min_capacity']  = $info['min_capacity'];
-            $response['data']['max_capacity']  = $info['max_capacity'];
-            $response['data']['start_date']    = $info['start_date'];
-            $response['data']['end_date']      = $info['end_date'];
-            $response['data']['staff_id']      = $info['staff_id'];
-            $response['data']['staff_any']     = (int) $info['staff_any'];
-            $response['data']['service_id']    = $info['service_id'];
-            $response['data']['internal_note'] = $info['internal_note'];
-            $response['data']['series_id']     = $info['series_id'];
-            $response['data']['location_id']   = $info['location_id'];
+            $response['data']['min_capacity']            = $info['min_capacity'];
+            $response['data']['max_capacity']            = $info['max_capacity'];
+            $response['data']['start_date']              = $info['start_date'];
+            $response['data']['end_date']                = $info['end_date'];
+            $response['data']['staff_id']                = $info['staff_id'];
+            $response['data']['staff_any']               = (int) $info['staff_any'];
+            $response['data']['service_id']              = $info['service_id'];
+            $response['data']['custom_service_name']     = $info['custom_service_name'];
+            $response['data']['custom_service_price']    = (float) $info['custom_service_price'];
+            $response['data']['internal_note']           = $info['internal_note'];
+            $response['data']['series_id']               = $info['series_id'];
+            $response['data']['location_id']             = $info['location_id'];
 
             $customers = Lib\Entities\CustomerAppointment::query( 'ca' )
                 ->select( 'ca.id,
                     ca.customer_id,
+                    ca.package_id,
                     ca.custom_fields,
                     ca.extras,
                     ca.number_of_persons,
+                    ca.notes,
                     ca.status,
                     ca.payment_id,
                     ca.compound_service_id,
@@ -369,7 +418,7 @@ class Controller extends Lib\Base\Controller
                     p.details AS payment_details,
                     p.status  AS payment_status' )
                 ->leftJoin( 'Payment', 'p', 'p.id = ca.payment_id' )
-                ->where( 'ca.appointment_id', $appointment->get( 'id' ) )
+                ->where( 'ca.appointment_id', $appointment->getId() )
                 ->fetchArray();
             foreach ( $customers as $customer ) {
                 $payment_title = '';
@@ -389,17 +438,21 @@ class Controller extends Lib\Base\Controller
                 if ( $customer['compound_service_id'] !== null ) {
                     $service = new Lib\Entities\Service();
                     if ( $service->load( $customer['compound_service_id'] ) ) {
-                        $compound_service = $service->getTitle();
+                        $compound_service = $service->getTranslatedTitle();
                     }
                 }
+                $custom_fields = (array) json_decode( $customer['custom_fields'], true );
                 $response['data']['customers'][] = array(
                     'id'                => $customer['customer_id'],
                     'ca_id'             => $customer['id'],
+                    'package_id'        => $customer['package_id'],
                     'compound_service'  => $compound_service,
                     'compound_token'    => $customer['compound_token'],
-                    'custom_fields'     => (array) json_decode( $customer['custom_fields'], true ),
+                    'custom_fields'     => $custom_fields,
+                    'files'             => Lib\Proxy\Files::getFileNamesForCustomFields( $custom_fields ),
                     'extras'            => (array) json_decode( $customer['extras'], true ),
                     'number_of_persons' => $customer['number_of_persons'],
+                    'notes'             => $customer['notes'],
                     'payment_id'        => $customer['payment_id'],
                     'payment_type'      => $customer['payment'] != $customer['payment_total'] ? 'partial' : 'full',
                     'payment_title'     => $payment_title,
@@ -417,27 +470,34 @@ class Controller extends Lib\Base\Controller
     {
         $response = array( 'success' => false );
 
-        $appointment_id = (int) $this->getParameter( 'id', 0 );
-        $staff_id       = (int) $this->getParameter( 'staff_id' );
-        $service_id     = (int) $this->getParameter( 'service_id' );
-        $location_id    = (int) $this->getParameter( 'location_id' );
-        $start_date     = $this->getParameter( 'start_date' );
-        $end_date       = $this->getParameter( 'end_date' );
-        $repeat         = json_decode( $this->getParameter( 'repeat', '[]' ), true );
-        $schedule       = $this->getParameter( 'schedule', array() );
-        $customers      = json_decode( $this->getParameter( 'customers', '[]' ), true );
-        $internal_note  = $this->getParameter( 'internal_note' );
-        $created_from   = $this->getParameter( 'created_from' );
+        $appointment_id       = (int) $this->getParameter( 'id', 0 );
+        $staff_id             = (int) $this->getParameter( 'staff_id', 0 );
+        $service_id           = (int) $this->getParameter( 'service_id', -1 );
+        $custom_service_name  = trim( $this->getParameter( 'custom_service_name' ) );
+        $custom_service_price = trim( $this->getParameter( 'custom_service_price' ) );
+        $location_id          = (int) $this->getParameter( 'location_id', 0 );
+        $start_date           = $this->getParameter( 'start_date' );
+        $end_date             = $this->getParameter( 'end_date' );
+        $repeat               = json_decode( $this->getParameter( 'repeat', '[]' ), true );
+        $schedule             = $this->getParameter( 'schedule', array() );
+        $customers            = json_decode( $this->getParameter( 'customers', '[]' ), true );
+        $notification         = $this->getParameter( 'notification', 'no' );
+        $internal_note        = $this->getParameter( 'internal_note' );
+        $created_from         = $this->getParameter( 'created_from' );
 
+        if ( ! $service_id ) {
+            // Custom service.
+            $service_id = null;
+        }
+        if ( $service_id || $custom_service_name == '' ) {
+            $custom_service_name = null;
+        }
+        if ( $service_id || $custom_service_price == '' ) {
+            $custom_service_price = null;
+        }
         if ( ! $location_id ) {
             $location_id = null;
         }
-
-        $staff_service  = new Lib\Entities\StaffService();
-        $staff_service->loadBy( array(
-            'staff_id'   => $staff_id,
-            'service_id' => $service_id
-        ) );
 
         // Check for errors.
         if ( ! $start_date ) {
@@ -447,15 +507,14 @@ class Controller extends Lib\Base\Controller
         } elseif ( $start_date == $end_date ) {
             $response['errors']['time_interval'] = __( 'End time must not be equal to start time', 'bookly' );
         }
-        if ( ! $service_id ) {
+        if ( $service_id == -1 ) {
             $response['errors']['service_required'] = true;
-        }
-        if ( empty ( $customers ) ) {
-            $response['errors']['customers_required'] = true;
+        } else if ( $service_id === null && $custom_service_name === null ) {
+            $response['errors']['custom_service_name_required'] = true;
         }
         $total_number_of_persons = 0;
         $max_extras_duration = 0;
-        foreach ( $customers as &$customer ) {
+        foreach ( $customers as $i => $customer ) {
             if ( $customer['status'] == Lib\Entities\CustomerAppointment::STATUS_PENDING ||
                 $customer['status'] == Lib\Entities\CustomerAppointment::STATUS_APPROVED
             ) {
@@ -465,94 +524,125 @@ class Controller extends Lib\Base\Controller
                     $max_extras_duration = $extras_duration;
                 }
             }
-            $customer['created_from'] = ( $created_from == 'backend' ) ? 'backend' : 'frontend';
+            $customers[ $i ]['created_from'] = ( $created_from == 'backend' ) ? 'backend' : 'frontend';
         }
-        if ( $total_number_of_persons > $staff_service->get( 'capacity_max' ) ) {
-            $response['errors']['overflow_capacity'] = sprintf(
-                __( 'The number of customers should not be more than %d', 'bookly' ),
-                $staff_service->get( 'capacity_max' )
-            );
+        if ( $service_id ) {
+            $staff_service = new Lib\Entities\StaffService();
+            $staff_service->loadBy( array(
+                'staff_id'   => $staff_id,
+                'service_id' => $service_id,
+            ) );
+            if ( $total_number_of_persons > $staff_service->getCapacityMax() ) {
+                $response['errors']['overflow_capacity'] = sprintf(
+                    __( 'The number of customers should not be more than %d', 'bookly' ),
+                    $staff_service->getCapacityMax()
+                );
+            }
         }
-        $total_end_date = $end_date;
-        if ( $max_extras_duration > 0 ) {
-            $total_end_date = date_create( $end_date )->modify( '+' . $max_extras_duration . ' sec' )->format( 'Y-m-d H:i:s' );
-        }
-        if ( ! $this->dateIntervalIsAvailableForAppointment( $start_date, $total_end_date, $staff_id, $appointment_id ) ) {
-            $response['errors']['date_interval_not_available'] = true;
-        }
-        $notification = $this->getParameter( 'notification' );
 
         // If no errors then try to save the appointment.
         if ( ! isset ( $response['errors'] ) ) {
             if ( $repeat['enabled'] ) {
+                // Series.
                 if ( ! empty ( $schedule ) ) {
-                    $recurring_list = array( 'customers' => $customers, 'appointments' => array() );
                     // Create new series.
                     $series = new Lib\Entities\Series();
                     $series
-                        ->set( 'repeat', $this->getParameter( 'repeat' ) )
-                        ->set( 'token', Lib\Utils\Common::generateToken( get_class( $series ), 'token' ) )
+                        ->setRepeat( $this->getParameter( 'repeat' ) )
+                        ->setToken( Lib\Utils\Common::generateToken( get_class( $series ), 'token' ) )
                         ->save();
 
-                    $service = new Lib\Entities\Service();
-                    $service->load( $service_id );
+                    if ( $notification != 'no' ) {
+                        // Create order per each customer to send notifications.
+                        /** @var DataHolders\Order[] $orders */
+                        $orders = array();
+                        foreach ( $customers as $customer ) {
+                            $order = DataHolders\Order::create( Lib\Entities\Customer::find( $customer['id'] ) )
+                                ->addItem( 0, DataHolders\Series::create( $series ) )
+                            ;
+                            $orders[ $customer['id'] ] = $order;
+                        }
+                    }
+
+                    if ( $service_id ) {
+                        $service = Lib\Entities\Service::find( $service_id );
+                    } else {
+                        $service = new Lib\Entities\Service();
+                        $service
+                            ->setTitle( $custom_service_name )
+                            ->setDuration( Lib\Slots\DatePoint::fromStr( $end_date )->diff( Lib\Slots\DatePoint::fromStr( $start_date ) ) )
+                            ->setPrice( $custom_service_price )
+                        ;
+                    }
 
                     foreach ( $schedule as $slot ) {
                         $slot = json_decode( $slot );
                         $appointment = new Lib\Entities\Appointment();
                         $appointment
-                            ->set( 'series_id',       $series->get( 'id' ) )
-                            ->set( 'location_id',     $location_id )
-                            ->set( 'staff_id',        $staff_id )
-                            ->set( 'service_id',      $service_id )
-                            ->set( 'start_date',      $slot[0][2] )
-                            ->set( 'end_date',        date( 'Y-m-d H:i:s', strtotime( $slot[0][2] ) + $service->get( 'duration' ) ) )
-                            ->set( 'internal_note',   $internal_note )
-                            ->set( 'extras_duration', $max_extras_duration )
+                            ->setSeries( $series )
+                            ->setLocationId( $location_id )
+                            ->setStaffId( $staff_id )
+                            ->setServiceId( $service_id )
+                            ->setCustomServiceName( $custom_service_name )
+                            ->setCustomServicePrice( $custom_service_price )
+                            ->setStartDate( $slot[0][2] )
+                            ->setEndDate( Lib\Slots\DatePoint::fromStr( $slot[0][2] )->modify( $service->getDuration() )->format( 'Y-m-d H:i:s' ) )
+                            ->setInternalNote( $internal_note )
+                            ->setExtrasDuration( $max_extras_duration )
                         ;
 
                         if ( $appointment->save() !== false ) {
                             // Save customer appointments.
-                            $appointment->saveCustomerAppointments( $customers );
-
+                            $ca_list = $appointment->saveCustomerAppointments( $customers );
                             // Google Calendar.
                             $appointment->handleGoogleCalendar();
                             // Waiting list.
                             Lib\Proxy\WaitingList::handleParticipantsChange( $appointment );
 
                             if ( $notification != 'no' ) {
-                                // Collect all appointments for sending recurring notification
-                                $recurring_list['appointments'][] = $appointment ;
+                                foreach ( $ca_list as $ca ) {
+                                    $item = DataHolders\Simple::create( $ca )
+                                        ->setService( $service )
+                                        ->setAppointment( $appointment )
+                                    ;
+                                    $orders[ $ca->getCustomerId() ]->getItem( 0 )->addItem( $item );
+                                }
                             }
                         }
                     }
-                    Lib\NotificationSender::sendRecurring( $recurring_list );
+                    if ( $notification != 'no' ) {
+                        foreach ( $orders as $order ) {
+                            Lib\Proxy\RecurringAppointments::sendRecurring( $order->getItem( 0 ), $order );
+                        }
+                    }
                 }
                 $response['success'] = true;
                 $response['data']    = array( 'staffId' => $staff_id );  // make FullCalendar refetch events
             } else {
+                // Single appointment.
                 $appointment = new Lib\Entities\Appointment();
                 if ( $appointment_id ) {
                     // Edit.
                     $appointment->load( $appointment_id );
-                    if ( $appointment->get( 'staff_id' ) != $staff_id ) {
-                        $appointment->set( 'staff_any', 0 );
+                    if ( $appointment->getStaffId() != $staff_id ) {
+                        $appointment->setStaffAny( 0 );
                     }
                 }
                 $appointment
-                    ->set( 'location_id',     $location_id )
-                    ->set( 'staff_id',        $staff_id )
-                    ->set( 'service_id',      $service_id )
-                    ->set( 'start_date',      $start_date )
-                    ->set( 'end_date',        $end_date )
-                    ->set( 'internal_note',   $internal_note )
-                    ->set( 'extras_duration', $max_extras_duration )
+                    ->setLocationId( $location_id )
+                    ->setStaffId( $staff_id )
+                    ->setServiceId( $service_id )
+                    ->setCustomServiceName( $custom_service_name )
+                    ->setCustomServicePrice( $custom_service_price )
+                    ->setStartDate( $start_date )
+                    ->setEndDate( $end_date )
+                    ->setInternalNote( $internal_note )
+                    ->setExtrasDuration( $max_extras_duration )
                 ;
 
                 if ( $appointment->save() !== false ) {
                     // Save customer appointments.
                     $ca_status_changed = $appointment->saveCustomerAppointments( $customers );
-                    $customer_appointments = $appointment->getCustomerAppointments( true );
 
                     // Google Calendar.
                     $appointment->handleGoogleCalendar();
@@ -560,17 +650,19 @@ class Controller extends Lib\Base\Controller
                     Lib\Proxy\WaitingList::handleParticipantsChange( $appointment );
 
                     // Send notifications.
-                    if ( $notification != 'no' ) {
-                        foreach ( $customer_appointments as $ca ) {
-                            // Send notification.
-                            if ( $notification == 'all' || in_array( $ca->get( 'id' ), $ca_status_changed ) ) {
-                                Lib\NotificationSender::send( $ca );
-                            }
+                    if ( $notification == 'changed_status' ) {
+                        foreach ( $ca_status_changed as $ca ) {
+                            Lib\NotificationSender::sendSingle( DataHolders\Simple::create( $ca )->setAppointment( $appointment ) );
+                        }
+                    } elseif ( $notification == 'all' ) {
+                        $ca_list = $appointment->getCustomerAppointments( true );
+                        foreach ( $ca_list as $ca ) {
+                            Lib\NotificationSender::sendSingle( DataHolders\Simple::create( $ca )->setAppointment( $appointment ) );
                         }
                     }
 
                     $response['success'] = true;
-                    $response['data']    = $this->_getAppointmentForFC( $staff_id, $appointment->get( 'id' ) );
+                    $response['data']    = $this->_getAppointmentForFC( $staff_id, $appointment->getId() );
                 } else {
                     $response['errors'] = array( 'db' => __( 'Could not save appointment in database.', 'bookly' ) );
                 }
@@ -580,7 +672,7 @@ class Controller extends Lib\Base\Controller
         wp_send_json( $response );
     }
 
-    public function executeCheckAppointmentDateSelection()
+    public function executeCheckAppointmentErrors()
     {
         $start_date     = $this->getParameter( 'start_date' );
         $end_date       = $this->getParameter( 'end_date' );
@@ -588,13 +680,31 @@ class Controller extends Lib\Base\Controller
         $service_id     = (int) $this->getParameter( 'service_id' );
         $appointment_id = (int) $this->getParameter( 'appointment_id' );
         $timestamp_diff = strtotime( $end_date ) - strtotime( $start_date );
+        $customers      = json_decode( $this->getParameter( 'customers', '[]' ), true );
 
         $result = array(
-            'date_interval_not_available' => false,
-            'date_interval_warning' => false,
+            'date_interval_not_available'  => false,
+            'date_interval_warning'        => false,
+            'customers_appointments_limit' => array(),
         );
 
-        if ( $appointment_id && ! $this->dateIntervalIsAvailableForAppointment( $start_date, $end_date, $staff_id, $appointment_id ) ) {
+        $max_extras_duration = 0;
+        foreach ( $customers as $customer ) {
+            if ( $customer['status'] == Lib\Entities\CustomerAppointment::STATUS_PENDING ||
+                $customer['status'] == Lib\Entities\CustomerAppointment::STATUS_APPROVED
+            ) {
+                $extras_duration = Lib\Proxy\ServiceExtras::getTotalDuration( $customer['extras'] );
+                if ( $extras_duration > $max_extras_duration ) {
+                    $max_extras_duration = $extras_duration;
+                }
+            }
+        }
+
+        $total_end_date = $end_date;
+        if ( $max_extras_duration > 0 ) {
+            $total_end_date = date_create( $end_date )->modify( '+' . $max_extras_duration . ' sec' )->format( 'Y-m-d H:i:s' );
+        }
+        if ( ! $this->dateIntervalIsAvailableForAppointment( $start_date, $total_end_date, $staff_id, $appointment_id ) ) {
             $result['date_interval_not_available'] = true;
         }
 
@@ -602,10 +712,20 @@ class Controller extends Lib\Base\Controller
             $service = new Lib\Entities\Service();
             $service->load( $service_id );
 
-            $duration = $service->get( 'duration' );
+            $duration = $service->getDuration();
 
             // Service duration interval is not equal to.
             $result['date_interval_warning'] = ( $timestamp_diff != $duration );
+
+            // Check customers for appointments limit
+            if ( $start_date ) {
+                foreach ( $customers as $index => $customer ) {
+                    if ( $service->appointmentsLimitReached( $customer['id'], array( $start_date ) ) ) {
+                        $customer_error = Lib\Entities\Customer::find( $customer['id'] );
+                        $result['customers_appointments_limit'][] = sprintf( __( '%s has reached the limit of bookings for this service', 'bookly' ), $customer_error->getFullName() );
+                    }
+                }
+            }
         }
 
         wp_send_json( $result );
@@ -625,21 +745,24 @@ class Controller extends Lib\Base\Controller
                 ->find();
             /** @var Lib\Entities\CustomerAppointment $ca */
             foreach ( $ca_list as $ca ) {
-                switch ( $ca->get('status') ) {
+                switch ( $ca->getStatus() ) {
                     case Lib\Entities\CustomerAppointment::STATUS_PENDING:
-                        $ca->set( 'status', Lib\Entities\CustomerAppointment::STATUS_REJECTED );
+                    case Lib\Entities\CustomerAppointment::STATUS_WAITLISTED:
+                        $ca->setStatus( Lib\Entities\CustomerAppointment::STATUS_REJECTED );
                         break;
                     case Lib\Entities\CustomerAppointment::STATUS_APPROVED:
-                        $ca->set( 'status', Lib\Entities\CustomerAppointment::STATUS_CANCELLED );
+                        $ca->setStatus( Lib\Entities\CustomerAppointment::STATUS_CANCELLED );
                         break;
                 }
-                Lib\NotificationSender::send( $ca, array( 'cancellation_reason' => $reason ) );
+                Lib\NotificationSender::sendSingle(
+                    DataHolders\Simple::create( $ca ),
+                    null,
+                    array( 'cancellation_reason' => $reason )
+                );
             }
         }
 
-        $appointment = new Lib\Entities\Appointment();
-        $appointment->load( $appointment_id );
-        $appointment->delete();
+        Lib\Entities\Appointment::find( $appointment_id )->delete();
 
         wp_send_json_success();
     }
@@ -717,6 +840,8 @@ class Controller extends Lib\Base\Controller
             '{category_name}'     => '',
             '{client_email}'      => '',
             '{client_name}'       => '',
+            '{client_first_name}' => '',
+            '{client_last_name}'  => '',
             '{client_phone}'      => '',
             '{company_address}'   => get_option( 'bookly_co_address' ),
             '{company_name}'      => get_option( 'bookly_co_name' ),
@@ -742,18 +867,19 @@ class Controller extends Lib\Base\Controller
             '{status}'            => '',
             '{total_price}'       => '',
         );
-        $appointments = $query
+        $query
             ->select( 'a.id, a.series_id, a.staff_any, a.location_id, a.start_date, DATE_ADD(a.end_date, INTERVAL a.extras_duration SECOND) AS end_date,
-                s.title AS service_name, s.color AS service_color, s.info AS service_info,
-                ss.capacity_max AS service_capacity, ss.price AS service_price,
+                COALESCE(s.title,a.custom_service_name) AS service_name, COALESCE(s.color,"silver") AS service_color, s.info AS service_info,
+                COALESCE(ss.price,a.custom_service_price) AS service_price,
                 st.full_name AS staff_name, st.email AS staff_email, st.info AS staff_info, st.phone AS staff_phone,
                 (SELECT SUM(ca.number_of_persons) FROM ' . Lib\Entities\CustomerAppointment::getTableName() . ' ca WHERE ca.appointment_id = a.id) AS total_number_of_persons,
                 ca.number_of_persons,
                 ca.custom_fields,
                 ca.status AS appointment_status,
                 ca.extras,
+                ca.package_id,
                 ct.name AS category_name,
-                c.full_name AS client_name, c.phone AS client_phone, c.email AS client_email, c.id AS customer_id,
+                c.full_name AS client_name, c.first_name AS client_first_name, c.last_name AS client_last_name, c.phone AS client_phone, c.email AS client_email, c.id AS customer_id,
                 p.total, p.type AS payment_gateway, p.status AS payment_status, p.paid,
                 (SELECT SUM(ca.number_of_persons) FROM ' . Lib\Entities\CustomerAppointment::getTableName() . ' ca WHERE ca.appointment_id = a.id AND ca.status = "waitlisted") AS on_waiting_list' )
             ->leftJoin( 'CustomerAppointment', 'ca', 'ca.appointment_id = a.id' )
@@ -763,8 +889,15 @@ class Controller extends Lib\Base\Controller
             ->leftJoin( 'Category', 'ct', 'ct.id = s.category_id' )
             ->leftJoin( 'Staff', 'st', 'st.id = a.staff_id' )
             ->leftJoin( 'StaffService', 'ss', 'ss.staff_id = a.staff_id AND ss.service_id = a.service_id' )
-            ->groupBy( 'a.id' )
-            ->fetchArray();
+            ->groupBy( 'a.id' );
+
+        if ( Lib\Config::groupBookingActive() ) {
+            $query->addSelect( 'COALESCE(ss.capacity_max,9999) AS service_capacity' );
+        } else {
+            $query->addSelect( '1 AS service_capacity' );
+        }
+
+        $appointments =  $query->fetchArray();
 
         foreach ( $appointments as $key => $appointment ) {
             $codes = $default_codes;
@@ -785,28 +918,19 @@ class Controller extends Lib\Base\Controller
             if ( $appointment['number_of_persons'] == $appointment['total_number_of_persons'] ) {
                 $participants = 'one';
                 $template     = $one_participant;
-                foreach ( array( 'client_name', 'client_phone', 'client_email' ) as $data_entry ) {
+                foreach ( array( 'client_name', 'client_first_name', 'client_last_name', 'client_phone', 'client_email' ) as $data_entry ) {
                     if ( $appointment[ $data_entry ] ) {
                         $codes[ '{' . $data_entry . '}' ] = esc_html( $appointment[ $data_entry ] );
                     }
                 }
 
-                // Custom fields.
-                if ( $appointment['custom_fields'] != '[]' ) {
-                    $ca = new Lib\Entities\CustomerAppointment();
-                    $ca->set( 'custom_fields',  $appointment['custom_fields'] );
-                    $ca->set( 'appointment_id', $appointment['id'] );
-                    foreach ( $ca->getCustomFields() as $custom_field ) {
-                        $codes['{custom_fields}'] .= sprintf( '<div>%s: %s</div>', wp_strip_all_tags( $custom_field['label'] ), nl2br( esc_html( $custom_field['value'] ) ) );
-                    }
-                }
                 // Payment.
                 if ( $appointment['total'] ) {
-                    $codes['{total_price}'] = Lib\Utils\Price::format( $appointment['total'] );
-                    $codes['{amount_paid}'] = Lib\Utils\Price::format( $appointment['paid'] );
-                    $codes['{amount_due}']  = Lib\Utils\Price::format( $appointment['total'] - $appointment['paid'] );
-                    $codes['{total_price}'] = Lib\Utils\Price::format( $appointment['total'] );
-                    $codes['{payment_type}'] = Lib\Entities\Payment::typeToString( $appointment['payment_gateway'] );
+                    $codes['{total_price}']    = Lib\Utils\Price::format( $appointment['total'] );
+                    $codes['{amount_paid}']    = Lib\Utils\Price::format( $appointment['paid'] );
+                    $codes['{amount_due}']     = Lib\Utils\Price::format( $appointment['total'] - $appointment['paid'] );
+                    $codes['{total_price}']    = Lib\Utils\Price::format( $appointment['total'] );
+                    $codes['{payment_type}']   = Lib\Entities\Payment::typeToString( $appointment['payment_gateway'] );
                     $codes['{payment_status}'] = Lib\Entities\Payment::statusToString( $appointment['payment_status'] );
                 }
                 // Status.
@@ -827,8 +951,9 @@ class Controller extends Lib\Base\Controller
                 'color'      => $appointment['service_color'],
                 'staffId'    => $staff_id,
                 'series_id'  => (int) $appointment['series_id'],
+                'package_id' => (int) $appointment['package_id'],
                 'waitlisted' => (int) $appointment['on_waiting_list'],
-                'staff_any' => (int) $appointment['staff_any'],
+                'staff_any'  => (int) $appointment['staff_any'],
             );
         }
 

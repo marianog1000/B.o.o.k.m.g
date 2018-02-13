@@ -1,6 +1,6 @@
 jQuery(function ($) {
     var $form                = $('#business-hours'),
-        $final_step_url      = $('input[name=bookly_gen_final_step_url]'),
+        $final_step_url      = $('input[name=bookly_url_final_step_url]'),
         $final_step_url_mode = $('#bookly_settings_final_step_url_mode'),
         $help_btn            = $('#bookly-help-btn'),
         $participants        = $('#bookly_appointment_participants')
@@ -110,34 +110,34 @@ jQuery(function ($) {
         });
     }).trigger('change');
 
-    $('#bookly_pmt_paypal').change(function () {
+    $('#bookly_paypal_enabled').change(function () {
         $('.bookly-paypal-ec').toggle(this.value == 'ec');
         $('.bookly-paypal-ps').toggle(this.value == 'ps');
-        $('.bookly-paypal').toggle(this.value != 'disabled');
+        $('.bookly-paypal').toggle(this.value != '0');
     }).change();
 
-    $('#bookly_pmt_authorize_net').change(function () {
-        $('.authorize-net').toggle(this.value != 'disabled');
+    $('#bookly_authorize_net_enabled').change(function () {
+        $('.bookly-authorize-net').toggle(this.value != '0');
     }).change();
 
-    $('#bookly_pmt_stripe').change(function () {
+    $('#bookly_stripe_enabled').change(function () {
         $('.bookly-stripe').toggle(this.value == 1);
     }).change();
 
-    $('#bookly_pmt_2checkout').change(function () {
-        $('.bookly-2checkout').toggle(this.value != 'disabled');
+    $('#bookly_2checkout_enabled').change(function () {
+        $('.bookly-2checkout').toggle(this.value != '0');
     }).change();
 
-    $('#bookly_pmt_payu_latam').change(function () {
-        $('.bookly-payu_latam').toggle(this.value != 'disabled');
+    $('#bookly_payu_latam_enabled').change(function () {
+        $('.bookly-payu_latam').toggle(this.value != '0');
     }).change();
 
-    $('#bookly_pmt_payson').change(function () {
-        $('.bookly-payson').toggle(this.value != 'disabled');
+    $('#bookly_payson_enabled').change(function () {
+        $('.bookly-payson').toggle(this.value != '0');
     }).change();
 
-    $('#bookly_pmt_mollie').change(function () {
-        $('.bookly-mollie').toggle(this.value != 'disabled');
+    $('#bookly_mollie_enabled').change(function () {
+        $('.bookly-mollie').toggle(this.value != '0');
     }).change();
 
     $('#bookly_payu_latam_sandbox').change(function () {
@@ -149,7 +149,7 @@ jQuery(function ($) {
 
     $('#bookly-payments-reset').on('click', function (event) {
         setTimeout(function () {
-            $('#bookly_pmt_currency,#bookly_pmt_paypal,#bookly_pmt_authorize_net,#bookly_pmt_stripe,#bookly_pmt_2checkout,#bookly_pmt_payu_latam,#bookly_pmt_payson,#bookly_pmt_mollie,#bookly_payu_latam_sandbox').change();
+            $('#bookly_pmt_currency,#bookly_paypal_enabled,#bookly_authorize_net_enabled,#bookly_stripe_enabled,#bookly_2checkout_enabled,#bookly_payu_latam_enabled,#bookly_payson_enabled,#bookly_mollie_enabled,#bookly_payu_latam_sandbox').change();
         }, 0);
     });
 
@@ -172,7 +172,7 @@ jQuery(function ($) {
         $help_btn.attr('href', help_link + e.target.getAttribute('data-target').substring(1).replace(/_/g, '-'));
     });
 
-    // Holidays
+    // Holidays Tab
     var d = new Date();
     $('.bookly-js-annual-calendar').jCal({
         day: new Date(d.getFullYear(), 0, 1),
@@ -195,6 +195,30 @@ jQuery(function ($) {
         e.preventDefault();
         var trigger = $(this).data('trigger');
         $('.bookly-js-annual-calendar').find($(trigger)).trigger('click');
+    });
+
+    // Purchase Code Tab.
+    $('.bookly-js-detach-pc').on('click', function (e) {
+        e.preventDefault();
+        if (confirm(BooklyL10n.confirm_detach)) {
+            var $this  = $(this),
+                $input = $this.closest('.form-group').find('input'),
+                name   = $input.prop('id')
+            ;
+            $input.prop('disabled', true);
+            $.post(ajaxurl, {
+                action: 'bookly_detach_purchase_code',
+                csrf_token: BooklyL10n.csrf_token,
+                name: name
+            }, function (response) {
+                $input.prop('disabled', false);
+                if (response.success) {
+                    $input.val('');
+                    $this.closest('p').remove();
+                }
+                booklyAlert(response.data.alert);
+            });
+        }
     });
 
     // Activate tab.

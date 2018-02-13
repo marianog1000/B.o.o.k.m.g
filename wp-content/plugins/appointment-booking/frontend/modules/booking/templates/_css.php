@@ -13,7 +13,8 @@
     .bookly-form .picker__day--selected:hover,
     .bookly-form .picker--opened .picker__day--selected,
     .bookly-form .picker__button--clear,
-    .bookly-form .picker__button--today {
+    .bookly-form .picker__button--today,
+    .bookly-columnizer .bookly-hour > span > span.bookly-waiting-list {
         color: <?php echo $color ?>!important;
     }
     /* Background */

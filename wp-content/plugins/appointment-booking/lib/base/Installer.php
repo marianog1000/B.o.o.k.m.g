@@ -76,9 +76,11 @@ abstract class Installer extends Schema
         add_option( $plugin_prefix . 'data_loaded', '0' );
         add_option( $plugin_prefix . 'db_version',  $plugin_class::getVersion() );
         add_option( $plugin_prefix . 'installation_time', time() );
-        add_option( $plugin_prefix . 'grace_start', time() + 2 * WEEK_IN_SECONDS );
+        add_option( $plugin_prefix . 'grace_start', time() + 60 * DAY_IN_SECONDS );
         add_option( $plugin_class::getPurchaseCodeOption(), '' );
-        if ( Plugin::getPrefix() != 'bookly_' ) {
+        if ( Plugin::getPrefix() != 'bookly_'
+            && array_key_exists( $plugin_prefix . 'enabled', $this->options ) == false
+        ) {
             add_option( $plugin_prefix . 'enabled', '1' );
         }
 

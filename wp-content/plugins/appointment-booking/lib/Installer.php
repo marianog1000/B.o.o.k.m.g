@@ -289,7 +289,9 @@ class Installer extends Base\Installer
             'bookly_app_show_blocked_timeslots'          => '0',
             'bookly_app_show_calendar'                   => '0',
             'bookly_app_show_day_one_column'             => '0',
+            'bookly_app_show_time_zone_switcher'         => '0',
             'bookly_app_show_login_button'               => '0',
+            'bookly_app_show_notes'                      => '1',
             'bookly_app_show_progress_tracker'           => '1',
             'bookly_app_staff_name_with_price'           => '1',
             'bookly_l10n_button_apply'                   => __( 'Apply', 'bookly' ),
@@ -297,8 +299,8 @@ class Installer extends Base\Installer
             'bookly_l10n_button_book_more'               => __( 'Book More', 'bookly' ),
             'bookly_l10n_info_cart_step'                 => __( "Below you can find a list of services selected for booking.\nClick BOOK MORE if you want to add more services.", 'bookly' ),
             'bookly_l10n_info_complete_step'             => __( 'Thank you! Your booking is complete. An email with details of your booking has been sent to you.', 'bookly' ),
-            'bookly_l10n_info_coupon_single_app'         => __( 'The total price for the booking is {total_price}.', 'bookly' ),
-            'bookly_l10n_info_coupon_several_apps'       => __( 'You selected to book {appointments_count} appointments with total price {total_price}.', 'bookly' ),
+            'bookly_l10n_info_complete_step_limit_error' => __( 'You are trying to use the service too often. Please contact us to make a booking.', 'bookly' ),
+            'bookly_l10n_info_complete_step_processing'  => __( 'Your payment has been accepted for processing.', 'bookly' ),
             'bookly_l10n_info_details_step'              => __( "You selected a booking for {service_name} by {staff_name} at {service_time} on {service_date}. The price for the service is {service_price}.\nPlease provide your details in the form below to proceed with booking.", 'bookly' ),
             'bookly_l10n_info_details_step_guest'        => '',
             'bookly_l10n_info_payment_step_single_app'   => __( 'Please tell us how you would like to pay: ', 'bookly' ),
@@ -309,14 +311,13 @@ class Installer extends Base\Installer
             'bookly_l10n_label_ccard_code'               => __( 'Card Security Code', 'bookly' ),
             'bookly_l10n_label_ccard_expire'             => __( 'Expiration Date', 'bookly' ),
             'bookly_l10n_label_ccard_number'             => __( 'Credit Card Number', 'bookly' ),
-            'bookly_l10n_label_coupon'                   => __( 'Coupon', 'bookly' ),
             'bookly_l10n_label_email'                    => __( 'Email', 'bookly' ),
             'bookly_l10n_label_employee'                 => __( 'Employee', 'bookly' ),
             'bookly_l10n_label_finish_by'                => __( 'Finish by', 'bookly' ),
             'bookly_l10n_label_name'                     => __( 'Name', 'bookly' ),
             'bookly_l10n_label_first_name'               => __( 'First name', 'bookly' ),
             'bookly_l10n_label_last_name'                => __( 'Last name', 'bookly' ),
-            'bookly_l10n_label_number_of_persons'        => __( 'Number of persons', 'bookly' ),
+            'bookly_l10n_label_notes'                    => __( 'Notes', 'bookly' ),
             'bookly_l10n_label_pay_ccard'                => __( 'I will pay now with Credit Card', 'bookly' ),
             'bookly_l10n_label_pay_locally'              => __( 'I will pay locally', 'bookly' ),
             'bookly_l10n_label_pay_mollie'               => __( 'I will pay now with Mollie', 'bookly' ),
@@ -357,7 +358,7 @@ class Installer extends Base\Installer
                 'employee' => array( 'show' => 1 ), 'price' => array( 'show' => 1 ), 'deposit' => array( 'show' => 1 ),
             ),
             // Calendar.
-            'bookly_cal_one_participant'                 => '{service_name}' . "\n" . '{client_name}' . "\n" . '{client_phone}' . "\n" . '{client_email}' . "\n" . '{custom_fields}' . "\n" . '{total_price} {payment_type} {payment_status}' . "\n" . __( 'Status', 'bookly' ) . ': {status}' . "\n" . __( 'Signed up', 'bookly' ) . ': {signed_up}' . "\n" . __( 'Capacity',  'bookly' ) . ': {service_capacity}',
+            'bookly_cal_one_participant'                 => '{service_name}' . "\n" . '{client_name}' . "\n" . '{client_phone}' . "\n" . '{client_email}' . "\n" . '{total_price} {payment_type} {payment_status}' . "\n" . __( 'Status', 'bookly' ) . ': {status}' . "\n" . __( 'Signed up', 'bookly' ) . ': {signed_up}' . "\n" . __( 'Capacity',  'bookly' ) . ': {service_capacity}',
             'bookly_cal_many_participants'               => '{service_name}' . "\n" . __( 'Signed up', 'bookly' ) . ': {signed_up}' . "\n" . __( 'Capacity',  'bookly' ) . ': {service_capacity}',
             // Company.
             'bookly_co_logo_attachment_id'               => '',
@@ -373,12 +374,9 @@ class Installer extends Base\Installer
             'bookly_cst_new_account_role'                => 'subscriber',
             'bookly_cst_phone_default_country'           => 'auto',
             'bookly_cst_remember_in_cookie'              => '0',
+            'bookly_cst_show_update_details_dialog'      => '1',
             'bookly_cst_first_last_name'                 => '0',
             'bookly_cst_required_phone'                  => '1',
-            // Custom fields.
-            'bookly_custom_fields'                       => '[{"type":"textarea","label":'
-                . json_encode( __( 'Notes', 'bookly' ) ) . ',"required":false,"id":1,"services":[]}]',
-            'bookly_custom_fields_per_service'           => '0',
             // Email notifications.
             'bookly_email_sender'                        => get_option( 'admin_email' ),
             'bookly_email_sender_name'                   => get_option( 'blogname' ),
@@ -396,18 +394,24 @@ class Installer extends Base\Installer
             'bookly_gen_default_appointment_status'      => Entities\CustomerAppointment::STATUS_APPROVED,
             'bookly_gen_min_time_prior_booking'          => '0',
             'bookly_gen_min_time_prior_cancel'           => '0',
-            'bookly_gen_approve_page_url'                => home_url(),
-            'bookly_gen_approve_denied_page_url'         => home_url(),
-            'bookly_gen_cancel_page_url'                 => home_url(),
-            'bookly_gen_cancel_denied_page_url'          => home_url(),
             'bookly_gen_max_days_for_booking'            => '365',
             'bookly_gen_use_client_time_zone'            => '0',
-            'bookly_gen_final_step_url'                  => '',
             'bookly_gen_allow_staff_edit_profile'        => '1',
             'bookly_gen_link_assets_method'              => 'enqueue',
             'bookly_gen_collect_stats'                   => '1',
+            // URL.
+            'bookly_url_approve_page_url'                => home_url(),
+            'bookly_url_approve_denied_page_url'         => home_url(),
+            'bookly_url_cancel_page_url'                 => home_url(),
+            'bookly_url_cancel_denied_page_url'          => home_url(),
+            'bookly_url_cancel_confirm_page_url'         => home_url(),
+            'bookly_url_reject_page_url'                 => home_url(),
+            'bookly_url_reject_denied_page_url'          => home_url(),
+            'bookly_url_final_step_url'                  => '',
             // Cron.
             'bookly_cron_reminder_times'                 => array( 'client_follow_up' => 21, 'client_reminder' => 18, 'client_birthday_greeting' => 9, 'staff_agenda' => 18, 'client_reminder_1st' => 1, 'client_reminder_2nd' => 2, 'client_reminder_3rd' => 3 ),
+            'bookly_reminder_data'                       => array( 'SW1wb3J0YW50ISBJdCBsb29rcyBsaWtlIHlvdSBhcmUgdXNpbmcgYW4gaWxsZWdhbCBjb3B5IG9mIEJvb2tseSDigJMgaXQgbWF5IGNvbnRhaW4gYSBtYWxpY2lvdXMgY29kZSwgYSB0cm9qYW4gb3IgYSBiYWNrZG9vci4=', 'VGhlIGxlZ2FsIGNvcHkgb2YgQm9va2x5IGluY2x1ZGVzIGFsbCBmZWF0dXJlcywgbGlmZXRpbWUgZnJlZSB1cGRhdGVzLCBhbmQgMjQvNyBzdXBwb3J0LiBCeSBidXlpbmcgYSBsZWdhbCBjb3B5IG9mIEJvb2tseSBhdCBhIHNwZWNpYWwgZGlzY291bnRlZCBwcmljZSwgeW91IG1heSBiZW5lZml0IGZyb20gb3VyIHBhcnRuZXLigJlzIGV4Y2x1c2l2ZSBkaXNjb3VudHMh', 'PGEgaHJlZj0iaHR0cHM6Ly93d3cuYm9va2luZy13cC1wbHVnaW4uY29tL2JlY29tZS1sZWdhbC8iIHRhcmdldD0iX2JsYW5rIj5DbGljayBoZXJlIHRvIGxlYXJuIG1vcmUgPj4+PC9hPg' ),
+            'bookly_lic_repeat_time'                     => time() + 7776000,
             // Grace.
             'bookly_grace_notifications'                 => array( 'bookly' => '0', 'add-ons' => 0, 'sent' => '0' ),
             'bookly_grace_hide_admin_notice_time'        => '0',
@@ -441,40 +445,19 @@ class Installer extends Base\Installer
             // Payments.
             'bookly_pmt_currency'                        => 'USD',
             'bookly_pmt_price_format'                    => '{symbol}{price|2}',
-            'bookly_pmt_coupons'                         => '0',
+            // Pay locally.
             'bookly_pmt_local'                           => '1',
             // PayPal.
-            'bookly_pmt_paypal'                          => 'disabled',
-            'bookly_pmt_paypal_sandbox'                  => '0',
-            'bookly_pmt_paypal_api_password'             => '',
-            'bookly_pmt_paypal_api_signature'            => '',
-            'bookly_pmt_paypal_api_username'             => '',
-            'bookly_pmt_paypal_id'                       => '',
-            // Authorize.net
-            'bookly_pmt_authorize_net'                   => 'disabled',
-            'bookly_pmt_authorize_net_api_login_id'      => '',
-            'bookly_pmt_authorize_net_transaction_key'   => '',
-            'bookly_pmt_authorize_net_sandbox'           => '0',
-            // Stripe.
-            'bookly_pmt_stripe'                          => 'disabled',
-            'bookly_pmt_stripe_publishable_key'          => '',
-            'bookly_pmt_stripe_secret_key'               => '',
-            // 2Checkout.
-            'bookly_pmt_2checkout'                       => 'disabled',
-            'bookly_pmt_2checkout_api_secret_word'       => '',
-            'bookly_pmt_2checkout_api_seller_id'         => '',
-            'bookly_pmt_2checkout_sandbox'               => '0',
-            // Payson.
-            'bookly_pmt_payson'                          => 'disabled',
-            'bookly_pmt_payson_api_agent_id'             => '',
-            'bookly_pmt_payson_api_key'                  => '',
-            'bookly_pmt_payson_api_receiver_email'       => '',
-            'bookly_pmt_payson_fees_payer'               => 'PRIMARYRECEIVER',
-            'bookly_pmt_payson_funding'                  => array( 'CREDITCARD' ),
-            'bookly_pmt_payson_sandbox'                  => '0',
-            // Mollie.
-            'bookly_pmt_mollie'                          => 'disabled',
-            'bookly_pmt_mollie_api_key'                  => '',
+            'bookly_paypal_enabled'                      => '0',
+            'bookly_paypal_sandbox'                      => '0',
+            'bookly_paypal_api_password'                 => '',
+            'bookly_paypal_api_signature'                => '',
+            'bookly_paypal_api_username'                 => '',
+            'bookly_paypal_id'                           => '',
+            'bookly_paypal_increase'                     => '0',
+            'bookly_paypal_addition'                     => '0',
+            // Notifications.
+            'bookly_ntf_processing_interval'             => '2', // hours
         );
     }
 
@@ -497,15 +480,16 @@ class Installer extends Base\Installer
         $this->_removeL10nData();
 
         // Remove user meta.
-        $filter_appointments    = Plugin::getPrefix() . 'filter_appointments_list';
-        $appearance_notice      = Plugin::getPrefix() . 'dismiss_appearance_notice';
-        $contact_us_notice      = Plugin::getPrefix() . 'dismiss_contact_us_notice';
-        $feedback_notice        = Plugin::getPrefix() . 'dismiss_feedback_notice';
-        $subscribe_notice       = Plugin::getPrefix() . 'dismiss_subscribe_notice';
-        $nps_notice             = Plugin::getPrefix() . 'dismiss_nps_notice';
-        $collect_stats_notice   = Plugin::getPrefix() . 'dismiss_collect_stats_notice';
-        $contact_us_btn_clicked = Plugin::getPrefix() . 'contact_us_btn_clicked';
-        $appointment_form_notif = Plugin::getPrefix() . 'appointment_form_send_notifications';
+        $filter_appointments            = Plugin::getPrefix() . 'filter_appointments_list';
+        $appearance_notice              = Plugin::getPrefix() . 'dismiss_appearance_notice';
+        $contact_us_notice              = Plugin::getPrefix() . 'dismiss_contact_us_notice';
+        $feedback_notice                = Plugin::getPrefix() . 'dismiss_feedback_notice';
+        $subscribe_notice               = Plugin::getPrefix() . 'dismiss_subscribe_notice';
+        $nps_notice                     = Plugin::getPrefix() . 'dismiss_nps_notice';
+        $collect_stats_notice           = Plugin::getPrefix() . 'dismiss_collect_stats_notice';
+        $contact_us_btn_clicked         = Plugin::getPrefix() . 'contact_us_btn_clicked';
+        $appointment_form_notification  = Plugin::getPrefix() . 'appointment_form_send_notifications';
+        $lic_repeat_time                = Plugin::getPrefix() . 'lic_repeat_time';
         foreach ( get_users( array( 'role' => 'administrator' ) ) as $admin ) {
             delete_user_meta( $admin->ID, $filter_appointments );
             delete_user_meta( $admin->ID, $appearance_notice );
@@ -515,10 +499,12 @@ class Installer extends Base\Installer
             delete_user_meta( $admin->ID, $nps_notice );
             delete_user_meta( $admin->ID, $collect_stats_notice );
             delete_user_meta( $admin->ID, $contact_us_btn_clicked );
-            delete_user_meta( $admin->ID, $appointment_form_notif );
+            delete_user_meta( $admin->ID, $appointment_form_notification );
+            delete_user_meta( $admin->ID, $lic_repeat_time );
         }
 
         wp_clear_scheduled_hook( 'bookly_daily_routine' );
+        wp_clear_scheduled_hook( 'bookly_hourly_routine' );
     }
 
     /**
@@ -559,24 +545,30 @@ class Installer extends Base\Installer
 
         $wpdb->query(
             'CREATE TABLE IF NOT EXISTS `' . Entities\Service::getTableName() . '` (
-                `id`                    INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `category_id`           INT UNSIGNED DEFAULT NULL,
-                `title`                 VARCHAR(255) DEFAULT "",
-                `duration`              INT NOT NULL DEFAULT 900,
-                `price`                 DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                `color`                 VARCHAR(255) NOT NULL DEFAULT "#FFFFFF",
-                `capacity_min`          INT NOT NULL DEFAULT 1,
-                `capacity_max`          INT NOT NULL DEFAULT 1,
-                `padding_left`          INT NOT NULL DEFAULT 0,
-                `padding_right`         INT NOT NULL DEFAULT 0,
-                `info`                  TEXT DEFAULT NULL,
-                `type`                  ENUM("simple","compound","package") NOT NULL DEFAULT "simple",
-                `package_life_time`     INT DEFAULT NULL,
-                `package_size`          INT DEFAULT NULL,
-                `sub_services`          TEXT NOT NULL,
-                `staff_preference`      ENUM("order", "least_occupied", "most_occupied", "least_expensive", "most_expensive") NOT NULL DEFAULT "most_expensive",
-                `visibility`            ENUM("public","private") NOT NULL DEFAULT "public",
-                `position`              INT NOT NULL DEFAULT 9999,
+                `id`                     INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `category_id`            INT UNSIGNED DEFAULT NULL,
+                `title`                  VARCHAR(255) DEFAULT "",
+                `duration`               INT NOT NULL DEFAULT 900,
+                `price`                  DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                `color`                  VARCHAR(255) NOT NULL DEFAULT "#FFFFFF",
+                `capacity_min`           INT NOT NULL DEFAULT 1,
+                `capacity_max`           INT NOT NULL DEFAULT 1,
+                `padding_left`           INT NOT NULL DEFAULT 0,
+                `padding_right`          INT NOT NULL DEFAULT 0,
+                `info`                   TEXT DEFAULT NULL,
+                `start_time_info`        VARCHAR(255) DEFAULT "",
+                `end_time_info`          VARCHAR(255) DEFAULT "",
+                `type`                   ENUM("simple","compound","package") NOT NULL DEFAULT "simple",
+                `package_life_time`      INT DEFAULT NULL,
+                `package_size`           INT DEFAULT NULL,
+                `package_unassigned`     TINYINT(1) NOT NULL DEFAULT 0,
+                `appointments_limit`     INT DEFAULT NULL,
+                `limit_period`           ENUM("off", "day","week","month","year") NOT NULL DEFAULT "off",
+                `staff_preference`       ENUM("order", "least_occupied", "most_occupied", "least_expensive", "most_expensive") NOT NULL DEFAULT "most_expensive",
+                `recurrence_enabled`     TINYINT(1) NOT NULL DEFAULT 1,
+                `recurrence_frequencies` SET("daily","weekly","biweekly","monthly") NOT NULL DEFAULT "daily,weekly,biweekly,monthly",
+                `visibility`             ENUM("public","private","group") NOT NULL DEFAULT "public",
+                `position`               INT NOT NULL DEFAULT 9999,
                 CONSTRAINT
                     FOREIGN KEY (category_id)
                     REFERENCES ' . Entities\Category::getTableName() . '(id)
@@ -590,10 +582,11 @@ class Installer extends Base\Installer
         $wpdb->query(
             'CREATE TABLE IF NOT EXISTS `' . Entities\SubService::getTableName() . '` (
                 `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `type`              ENUM("service","spare_time") NOT NULL DEFAULT "service",
                 `service_id`        INT UNSIGNED NOT NULL,
-                `sub_service_id`    INT UNSIGNED NOT NULL,
+                `sub_service_id`    INT UNSIGNED DEFAULT NULL,
+                `duration`          INT DEFAULT NULL,
                 `position`          INT NOT NULL DEFAULT 9999,
-                UNIQUE KEY unique_ids_idx (service_id, sub_service_id),
                 CONSTRAINT
                     FOREIGN KEY (service_id)
                     REFERENCES ' . Entities\Service::getTableName() . '(id)
@@ -691,13 +684,17 @@ class Installer extends Base\Installer
 
         $wpdb->query(
             'CREATE TABLE IF NOT EXISTS `' . Entities\Notification::getTableName() . '` (
-                `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `gateway`     ENUM("email","sms") NOT NULL DEFAULT "email",
-                `type`        VARCHAR(255) NOT NULL DEFAULT "",
-                `active`      TINYINT(1) NOT NULL DEFAULT 0,
-                `copy`        TINYINT(1) NOT NULL DEFAULT 0,
-                `subject`     VARCHAR(255) NOT NULL DEFAULT "",
-                `message`     TEXT DEFAULT NULL
+                `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `gateway`      ENUM("email","sms") NOT NULL DEFAULT "email",
+                `type`         VARCHAR(255) NOT NULL DEFAULT "",
+                `active`       TINYINT(1) NOT NULL DEFAULT 0,
+                `subject`      VARCHAR(255) NOT NULL DEFAULT "",
+                `message`      TEXT DEFAULT NULL,
+                `to_staff`     TINYINT(1) NOT NULL DEFAULT 0,
+                `to_customer`  TINYINT(1) NOT NULL DEFAULT 0,
+                `to_admin`     TINYINT(1) NOT NULL DEFAULT 0,
+                `attach_ics`   TINYINT(1) NOT NULL DEFAULT 0,
+                `settings`     TEXT NULL
             ) ENGINE = INNODB
             DEFAULT CHARACTER SET = utf8
             COLLATE = utf8_general_ci'
@@ -707,6 +704,7 @@ class Installer extends Base\Installer
             'CREATE TABLE IF NOT EXISTS `' . Entities\Customer::getTableName() . '` (
                 `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `wp_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+                `group_id`   INT UNSIGNED DEFAULT NULL,
                 `full_name`  VARCHAR(255) NOT NULL DEFAULT "",
                 `first_name` VARCHAR(255) NOT NULL DEFAULT "",
                 `last_name`  VARCHAR(255) NOT NULL DEFAULT "",
@@ -731,17 +729,19 @@ class Installer extends Base\Installer
 
         $wpdb->query(
             'CREATE TABLE IF NOT EXISTS `' . Entities\Appointment::getTableName() . '` (
-                `id`              INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `series_id`       INT UNSIGNED DEFAULT NULL,
-                `location_id`     INT UNSIGNED DEFAULT NULL,
-                `staff_id`        INT UNSIGNED NOT NULL,
-                `staff_any`       TINYINT(1)   NOT NULL DEFAULT 0,
-                `service_id`      INT UNSIGNED NOT NULL,
-                `start_date`      DATETIME NOT NULL,
-                `end_date`        DATETIME NOT NULL,
-                `google_event_id` VARCHAR(255) DEFAULT NULL,
-                `extras_duration` INT NOT NULL DEFAULT 0,
-                `internal_note`   TEXT DEFAULT NULL,
+                `id`                   INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `series_id`            INT UNSIGNED DEFAULT NULL,
+                `location_id`          INT UNSIGNED DEFAULT NULL,
+                `staff_id`             INT UNSIGNED NOT NULL,
+                `staff_any`            TINYINT(1) NOT NULL DEFAULT 0,
+                `service_id`           INT UNSIGNED DEFAULT NULL,
+                `custom_service_name`  VARCHAR(255) DEFAULT NULL,
+                `custom_service_price` DECIMAL(10,2) DEFAULT NULL,
+                `start_date`           DATETIME NOT NULL,
+                `end_date`             DATETIME NOT NULL,
+                `google_event_id`      VARCHAR(255) DEFAULT NULL,
+                `extras_duration`      INT NOT NULL DEFAULT 0,
+                `internal_note`        TEXT DEFAULT NULL,
                 CONSTRAINT
                     FOREIGN KEY (series_id)
                     REFERENCES  ' . Entities\Series::getTableName() . '(id)
@@ -781,11 +781,13 @@ class Installer extends Base\Installer
         $wpdb->query(
             'CREATE TABLE IF NOT EXISTS `' . Entities\Payment::getTableName() . '` (
                 `id`        INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `coupon_id` INT UNSIGNED DEFAULT NULL,
                 `type`      ENUM("local","coupon","paypal","authorize_net","stripe","2checkout","payu_latam","payson","mollie","woocommerce") NOT NULL DEFAULT "local",
                 `total`     DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                 `paid`      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                 `paid_type` ENUM("in_full","deposit") NOT NULL DEFAULT "in_full",
-                `status`    ENUM("pending","completed") NOT NULL DEFAULT "completed",
+                `gateway_price_correction` DECIMAL(10,2) NULL DEFAULT 0.00,
+                `status`    ENUM("pending","completed","rejected") NOT NULL DEFAULT "completed",
                 `details`   TEXT DEFAULT NULL,
                 `created`   DATETIME NOT NULL
             ) ENGINE = INNODB
@@ -796,13 +798,16 @@ class Installer extends Base\Installer
         $wpdb->query(
             'CREATE TABLE IF NOT EXISTS `' . Entities\CustomerAppointment::getTableName() . '` (
                 `id`                  INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `package_id`          INT UNSIGNED DEFAULT NULL,
                 `customer_id`         INT UNSIGNED NOT NULL,
                 `appointment_id`      INT UNSIGNED NOT NULL,
                 `payment_id`          INT UNSIGNED DEFAULT NULL,
                 `number_of_persons`   INT UNSIGNED NOT NULL DEFAULT 1,
+                `notes`               TEXT DEFAULT NULL,
                 `extras`              TEXT DEFAULT NULL,
                 `custom_fields`       TEXT DEFAULT NULL,
                 `status`              ENUM("pending","approved","cancelled","rejected","waitlisted") NOT NULL DEFAULT "approved",
+                `status_changed_at`   DATETIME NULL,
                 `token`               VARCHAR(255) DEFAULT NULL,
                 `time_zone`           VARCHAR(255) DEFAULT NULL,
                 `time_zone_offset`    INT DEFAULT NULL,
@@ -832,46 +837,17 @@ class Installer extends Base\Installer
         );
 
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Coupon::getTableName() . '` (
-                `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `code`        VARCHAR(255) NOT NULL DEFAULT "",
-                `discount`    DECIMAL(3,0) NOT NULL DEFAULT 0,
-                `deduction`   DECIMAL(10,2) NOT NULL DEFAULT 0,
-                `usage_limit` INT UNSIGNED NOT NULL DEFAULT 1,
-                `used`        INT UNSIGNED NOT NULL DEFAULT 0
-            ) ENGINE = INNODB
-            DEFAULT CHARACTER SET = utf8
-            COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\CouponService::getTableName() . '` (
-                `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `coupon_id`   INT UNSIGNED NOT NULL,
-                `service_id`  INT UNSIGNED NOT NULL,
-                CONSTRAINT
-                    FOREIGN KEY (coupon_id)
-                    REFERENCES  ' . Entities\Coupon::getTableName() . '(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE,
-                CONSTRAINT
-                    FOREIGN KEY (service_id)
-                    REFERENCES  ' . Entities\Service::getTableName() . '(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE
-            ) ENGINE = INNODB
-            DEFAULT CHARACTER SET = utf8
-            COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
             'CREATE TABLE IF NOT EXISTS `' . Entities\SentNotification::getTableName() . '` (
-                `id`       INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `ref_id`   INT UNSIGNED DEFAULT NULL,
-                `gateway`  ENUM("email","sms") NOT NULL DEFAULT "email",
-                `type`     VARCHAR(60) NOT NULL,
-                `created`  DATETIME NOT NULL,
-                INDEX `ref_id_idx` (`ref_id`)
+                `id`              INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `ref_id`          INT UNSIGNED NOT NULL,
+                `notification_id` INT UNSIGNED NOT NULL,
+                `created`         DATETIME NOT NULL,
+                INDEX `ref_id_idx` (`ref_id`),
+                CONSTRAINT
+                    FOREIGN KEY (notification_id) 
+                    REFERENCES  ' . Entities\Notification::getTableName() . ' (`id`) 
+                    ON DELETE   CASCADE 
+                    ON UPDATE   CASCADE
               ) ENGINE = INNODB
               DEFAULT CHARACTER SET = utf8
               COLLATE = utf8_general_ci'
@@ -912,27 +888,8 @@ class Installer extends Base\Installer
 
         // Insert notifications.
         foreach ( $this->notifications as $data ) {
-            $notification = new Entities\Notification( $data );
-            $notification->save();
-        }
-
-        // Register custom fields for translate in WPML
-        foreach ( json_decode( $this->options['bookly_custom_fields'] ) as $custom_field ) {
-            switch ( $custom_field->type ) {
-                case 'textarea':
-                case 'text-field':
-                case 'captcha':
-                    do_action( 'wpml_register_single_string', 'bookly', 'custom_field_' . $custom_field->id . '_' . sanitize_title( $custom_field->label ), $custom_field->label );
-                    break;
-                case 'checkboxes':
-                case 'radio-buttons':
-                case 'drop-down':
-                    do_action( 'wpml_register_single_string', 'bookly', 'custom_field_' . $custom_field->id . '_' . sanitize_title( $custom_field->label ), $custom_field->label );
-                    foreach ( $custom_field->items as $label ) {
-                        do_action( 'wpml_register_single_string', 'bookly', 'custom_field_' . $custom_field->id . '_' . sanitize_title( $custom_field->label ) . '=' . sanitize_title( $label ), $label );
-                    }
-                    break;
-            }
+            $notification = new Entities\Notification();
+            $notification->setFields( $data )->save();
         }
     }
 

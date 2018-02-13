@@ -24,7 +24,6 @@ if ( $participants == 'one' ) {
     $codes[] = array( 'code' => 'client_first_name', 'description' => __( 'first name of client', 'bookly' ) );
     $codes[] = array( 'code' => 'client_last_name',  'description' => __( 'last name of client', 'bookly' ) );
     $codes[] = array( 'code' => 'client_phone',      'description' => __( 'phone of client', 'bookly' ) );
-    $codes[] = array( 'code' => 'custom_fields',     'description' => __( 'combined values of all custom fields', 'bookly' ) );
     $codes[] = array( 'code' => 'payment_status',    'description' => __( 'status of payment', 'bookly' ) );
     $codes[] = array( 'code' => 'payment_type',      'description' => __( 'payment type', 'bookly' ) );
     $codes[] = array( 'code' => 'status',            'description' => __( 'status of appointment', 'bookly' ) );

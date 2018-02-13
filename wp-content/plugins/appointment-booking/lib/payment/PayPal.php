@@ -9,7 +9,7 @@ use Bookly\Lib;
  */
 class PayPal
 {
-    const TYPE_EXPRESS_CHECKOUT = 'ec';
+    const TYPE_EXPRESS_CHECKOUT  = 'ec';
     const TYPE_PAYMENTS_STANDARD = 'ps';
 
     const URL_POSTBACK_IPN_LIVE = 'https://www.paypal.com/cgi-bin/webscr';
@@ -17,6 +17,9 @@ class PayPal
 
     // Array for cleaning PayPal request
     static public $remove_parameters = array( 'bookly_action', 'bookly_fid', 'error_msg', 'token', 'PayerID',  'type' );
+
+    /** @var  string */
+    private $error;
 
     /**
      * The array of products for checkout
@@ -57,27 +60,33 @@ class PayPal
 
         // send the request to PayPal
         $response = $this->sendNvpRequest( 'SetExpressCheckout', $data );
-
-        // Respond according to message we receive from PayPal
-        $ack = strtoupper( $response['ACK'] );
-        if ( $ack == 'SUCCESS' || $ack == 'SUCCESSWITHWARNING' ) {
-            // Redirect to PayPal.
-            $paypal_url = sprintf(
-                'https://www%s.paypal.com/cgi-bin/webscr?cmd=_express-checkout&useraction=commit&token=%s',
-                get_option( 'bookly_pmt_paypal_sandbox' ) ? '.sandbox' : '',
-                urlencode( $response['TOKEN'] )
-            );
-            header( 'Location: ' . $paypal_url );
-        } else {
-            header( 'Location: ' . wp_sanitize_redirect(
+        if ( $response === null ) {
+            $url = wp_sanitize_redirect(
                 add_query_arg( array(
                     'bookly_action' => 'paypal-ec-error',
-                    'bookly_fid' => $form_id,
-                    'error_msg'  => urlencode( $response['L_LONGMESSAGE0'] )
-                ), $current_url )
-            ) );
+                    'bookly_fid'    => $form_id,
+                    'error_msg'     => urlencode( $this->error ),
+                ), $current_url ) );
+        } else {
+            // Respond according to message we receive from PayPal
+            $ack = strtoupper( $response['ACK'] );
+            if ( $ack == 'SUCCESS' || $ack == 'SUCCESSWITHWARNING' ) {
+                // Redirect url to PayPal.
+                $url = sprintf(
+                    'https://www%s.paypal.com/cgi-bin/webscr?cmd=_express-checkout&useraction=commit&token=%s',
+                    get_option( 'bookly_paypal_sandbox' ) ? '.sandbox' : '',
+                    urlencode( $response['TOKEN'] )
+                );
+            } else {
+                $url = wp_sanitize_redirect(
+                    add_query_arg( array(
+                        'bookly_action' => 'paypal-ec-error',
+                        'bookly_fid'    => $form_id,
+                        'error_msg'     => urlencode( $response['L_LONGMESSAGE0'] ),
+                    ), $current_url ) );
+            }
         }
-
+        header( 'Location: ' . $url );
         exit;
     }
 
@@ -86,35 +95,39 @@ class PayPal
      *
      * @param       $method
      * @param array $data
-     * @return array
+     * @return array|null
      */
     public function sendNvpRequest( $method, array $data )
     {
-        $url  = 'https://api-3t' . ( get_option( 'bookly_pmt_paypal_sandbox' ) ? '.sandbox' : '' ) . '.paypal.com/nvp';
-
-        $curl = new Lib\Curl\Curl();
-        $curl->options['CURLOPT_SSL_VERIFYPEER'] = false;
-        $curl->options['CURLOPT_SSL_VERIFYHOST'] = false;
+        $paypal_response = array();
+        $url  = 'https://api-3t' . ( get_option( 'bookly_paypal_sandbox' ) ? '.sandbox' : '' ) . '.paypal.com/nvp';
 
         $data['METHOD']    = $method;
         $data['VERSION']   = '76.0';
-        $data['USER']      = get_option( 'bookly_pmt_paypal_api_username' );
-        $data['PWD']       = get_option( 'bookly_pmt_paypal_api_password' );
-        $data['SIGNATURE'] = get_option( 'bookly_pmt_paypal_api_signature' );
+        $data['USER']      = get_option( 'bookly_paypal_api_username' );
+        $data['PWD']       = get_option( 'bookly_paypal_api_password' );
+        $data['SIGNATURE'] = get_option( 'bookly_paypal_api_signature' );
 
-        $httpResponse = $curl->post( $url, $data );
-        if ( ! $httpResponse ) {
-            exit( $curl->error() );
+        $args = array(
+            'sslverify' => false,
+            'body'      => $data,
+        );
+
+        $response = wp_remote_post( $url, $args );
+        if ( $response instanceof \WP_Error ) {
+            $this->error = 'Invalid HTTP Response for POST request to ' . $url;
+            return null;
+        } else {
+            // Extract the response details.
+            parse_str( $response['body'], $paypal_response );
+
+            if ( ! array_key_exists( 'ACK', $paypal_response ) ) {
+                $this->error = 'Invalid HTTP Response for POST request to ' . $url;
+                return null;
+            }
         }
 
-        // Extract the response details.
-        parse_str( $httpResponse, $PayPalResponse );
-
-        if ( ! array_key_exists( 'ACK', $PayPalResponse ) ) {
-            exit( 'Invalid HTTP Response for POST request to ' . $url );
-        }
-
-        return $PayPalResponse;
+        return $paypal_response;
     }
 
     /**
@@ -157,7 +170,7 @@ class PayPal
      */
     public static function verifyIPN()
     {
-        $paypalUrl = get_option( 'bookly_pmt_paypal_sandbox' ) ?
+        $paypalUrl = get_option( 'bookly_paypal_sandbox' ) ?
             self::URL_POSTBACK_IPN_SANDBOX :
             self::URL_POSTBACK_IPN_LIVE;
 
@@ -198,4 +211,15 @@ class PayPal
 
         return strcmp( $response['body'], 'VERIFIED' ) === 0;
     }
+
+    /**
+     * Gets error
+     *
+     * @return mixed
+     */
+    public function getError()
+    {
+        return $this->error;
+    }
+
 }

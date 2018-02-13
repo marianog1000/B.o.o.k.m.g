@@ -83,8 +83,8 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <?php \Bookly\Lib\Utils\Common::csrf() ?>
-                            <?php \Bookly\Lib\Utils\Common::submitButton( '', '', __( 'Send', 'bookly' ) ) ?>
+                            <?php Bookly\Lib\Utils\Common::csrf() ?>
+                            <?php Bookly\Lib\Utils\Common::submitButton( '', '', __( 'Send', 'bookly' ) ) ?>
                         </div>
                     </form>
                 </div>

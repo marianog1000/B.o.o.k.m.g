@@ -67,4 +67,9 @@ class Components extends Lib\Base\Components
             $this->render( 'notice_grace', compact( 'replace_data' ) );
         }
     }
+
+    public function renderPurchaseNotice()
+    {
+        $this->render( 'purchase_reminder' );
+    }
 }

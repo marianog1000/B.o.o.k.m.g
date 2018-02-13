@@ -35,7 +35,7 @@ function booklyAlert(alert) {
                 if (type == 'success') {
                     setTimeout(function() {
                         $alert.remove();
-                    }, 5000);
+                    }, 10000);
                 }
             });
         }

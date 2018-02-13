@@ -9,6 +9,9 @@ use Bookly\Lib\Base;
  *
  * @package Bookly\Lib\Proxy
  *
+ * @method static void addBooklyMenuItem() Add 'Locations' to Bookly menu
+ * @see \BooklyLocations\Lib\ProxyProviders\Local::addBooklyMenuItem()
+ *
  * @method static \Booklylocations\Lib\Entities\Location|false findById( int $location_id ) Return Location entity.
  * @see \BooklyLocations\Lib\ProxyProviders\Local::findById()
  *
@@ -18,7 +21,7 @@ use Bookly\Lib\Base;
  * @method static void renderAppearance() Render Locations in Appearance
  * @see \BooklyLocations\Lib\ProxyProviders\Local::renderAppearance()
  */
-class Locations extends Base\ProxyInvoker
+abstract class Locations extends Base\ProxyInvoker
 {
 
 }

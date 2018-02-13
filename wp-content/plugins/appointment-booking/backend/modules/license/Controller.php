@@ -57,4 +57,9 @@ class Controller extends Lib\Base\Controller
     {
         wp_send_json_success( array( 'html' => $this->render( 'verification_succeeded', array(), false ) ) );
     }
+
+    public function executeDismissPurchaseReminder()
+    {
+        delete_user_meta( get_current_user_id(), 'show_purchase_reminder' );
+    }
 }

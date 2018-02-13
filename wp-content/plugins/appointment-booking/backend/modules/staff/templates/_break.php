@@ -27,8 +27,8 @@
             <hr>
 
             <div class="clearfix text-right">
-                <?php \Bookly\Lib\Utils\Common::submitButton( null, 'bookly-js-save-break' ) ?>
-                <?php \Bookly\Lib\Utils\Common::customButton( null, 'bookly-popover-close btn-lg btn-default', __( 'Close', 'bookly' ) ) ?>
+                <?php Bookly\Lib\Utils\Common::submitButton( null, 'bookly-js-save-break' ) ?>
+                <?php Bookly\Lib\Utils\Common::customButton( null, 'bookly-popover-close btn-lg btn-default', __( 'Close', 'bookly' ) ) ?>
             </div>
         </div>
     </div>

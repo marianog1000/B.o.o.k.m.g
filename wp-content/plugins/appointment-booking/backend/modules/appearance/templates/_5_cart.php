@@ -1,19 +1,19 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 use Bookly\Lib\Utils\Price;
 use Bookly\Lib\Utils\DateTime;
-
+use Bookly\Backend\Modules\Appearance\Components;
+use Bookly\Lib\Proxy;
 /** @var Bookly\Backend\Modules\Appearance\Lib\Helper $editable */
 ?>
 <div class="bookly-form">
     <?php include '_progress_tracker.php' ?>
 
     <div class="bookly-box">
-        <?php $editable::renderText( 'bookly_l10n_info_cart_step', $this->render( '_codes', array( 'step' => 5 ), false ) ) ?>
-        <div class="bookly-holder bookly-label-error bookly-bold">
-            <?php $editable::renderText( 'bookly_l10n_step_cart_slot_not_available', null, 'bottom', __( 'Visible when the chosen time slot has been already booked', 'bookly' ) ) ?>
-        </div>
+        <?php $editable::renderText( 'bookly_l10n_info_cart_step', Components::getInstance()->renderCodes( array( 'step' => 5 ), false ) ) ?>
     </div>
-
+    <div class="bookly-box bookly-label-error">
+        <?php $editable::renderText( 'bookly_l10n_step_cart_slot_not_available', null, 'bottom', __( 'Visible when the chosen time slot has been already booked', 'bookly' ) ) ?>
+    </div>
     <div class="bookly-box">
         <div class="bookly-btn bookly-add-item bookly-inline-block">
             <?php $editable::renderString( array( 'bookly_l10n_button_book_more', ) ) ?>
@@ -114,14 +114,14 @@ use Bookly\Lib\Utils\DateTime;
                     </tr>
                 </tbody>
                 <tfoot class="bookly-desktop-version">
-                    <tr>
+                    <tr class="bookly-cart-total">
                         <td colspan="4"><strong><?php _e( 'Total', 'bookly' ) ?>:</strong></td>
                         <td><strong class="bookly-js-total-price"><?php echo Price::format( 750 ) ?></strong></td>
                         <td></td>
                     </tr>
                 </tfoot>
                 <tfoot class="bookly-mobile-version">
-                    <tr>
+                    <tr class="bookly-cart-total">
                         <th><strong><?php _e( 'Total', 'bookly' ) ?>:</strong></th>
                         <td><strong class="bookly-js-total-price"><?php echo Price::format( 750 ) ?></strong></td>
                     </tr>
@@ -130,7 +130,7 @@ use Bookly\Lib\Utils\DateTime;
         </div>
     </div>
 
-    <?php \Bookly\Lib\Proxy\RecurringAppointments::renderAppearanceEditableInfoMessage() ?>
+    <?php Proxy\RecurringAppointments::renderAppearanceInfoMessage() ?>
 
     <div class="bookly-box bookly-nav-steps">
         <div class="bookly-back-step bookly-js-back-step bookly-btn">

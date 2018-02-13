@@ -1,17 +1,15 @@
-<?php
-/**
- * Template to show appearance page
- * @var array $steps list of steps in booking form, could be string (the name of step) or false if step disabled
- * @var string $custom_css custom css text
- */
+<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+use Bookly\Lib\Config;
+use Bookly\Lib\Plugin;
+use Bookly\Lib\Proxy;
+use Bookly\Lib\Utils\Common;
 ?>
-<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly ?>
 
-<?php if ( trim( $custom_css ) ): ?>
+<?php if ( trim( $custom_css ) ) : ?>
     <style type="text/css">
-        <?php echo $custom_css; ?>
+        <?php echo $custom_css ?>
     </style>
-<?php endif; ?>
+<?php endif ?>
 
 <div id="bookly-tbs" class="wrap">
     <div class="bookly-tbs-body">
@@ -19,7 +17,7 @@
             <div class="bookly-page-title">
                 <?php _e( 'Appearance', 'bookly' ) ?>
             </div>
-            <?php \Bookly\Backend\Modules\Support\Components::getInstance()->renderButtons( $this::page_slug ) ?>
+            <?php Bookly\Backend\Modules\Support\Components::getInstance()->renderButtons( $this::page_slug ) ?>
         </div>
         <div class="panel panel-default bookly-main">
             <div class="panel-body">
@@ -43,8 +41,8 @@
                     <ul class="bookly-nav bookly-nav-tabs bookly-margin-top-lg" role="tablist">
                         <?php $i = 1 ?>
                         <?php foreach ( $steps as $step => $step_name ) : ?>
-                            <?php if ( ( $step != 2 || \Bookly\Lib\Config::serviceExtrasEnabled() )
-                                    && ( $step != 4 || \Bookly\Lib\Config::recurringAppointmentsEnabled() ) ) : ?>
+                            <?php if ( ( $step != 2 || Config::serviceExtrasEnabled() )
+                                    && ( $step != 4 || Config::recurringAppointmentsEnabled() ) ) : ?>
                                 <li class="bookly-nav-item <?php if ( $step == 1 ) : ?>active<?php endif ?>" data-target="#bookly-step-<?php echo $step ?>" data-toggle="tab">
                                     <?php echo $i++ ?>. <?php echo esc_html( $step_name ) ?>
                                 </li>
@@ -52,7 +50,7 @@
                         <?php endforeach ?>
                     </ul>
 
-                    <?php if ( ! get_user_meta( get_current_user_id(), \Bookly\Lib\Plugin::getPrefix() . 'dismiss_appearance_notice', true ) ): ?>
+                    <?php if ( ! get_user_meta( get_current_user_id(), Plugin::getPrefix() . 'dismiss_appearance_notice', true ) ): ?>
                         <div class="alert alert-info alert-dismissible fade in bookly-margin-top-lg bookly-margin-bottom-remove" id="bookly-js-hint-alert" role="alert">
                             <button type="button" class="close" data-dismiss="alert"></button>
                             <?php _e( 'Click on the underlined text to edit.', 'bookly' ) ?>
@@ -61,7 +59,7 @@
 
                     <div class="row" id="bookly-step-settings">
                         <div class="bookly-js-service-settings bookly-margin-top-lg">
-                            <?php \Bookly\Lib\Proxy\Shared::renderAppearanceStepServiceSettings() ?>
+                            <?php Proxy\Shared::renderAppearanceStepServiceSettings() ?>
                             <div class="col-md-3">
                                 <div class="checkbox">
                                     <label>
@@ -88,7 +86,7 @@
                             </div>
                         </div>
                         <div class="bookly-js-time-settings bookly-margin-top-lg" style="display:none">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="checkbox">
                                     <label>
                                         <input type="checkbox" id="bookly-show-calendar" <?php checked( get_option( 'bookly_app_show_calendar' ) ) ?>>
@@ -96,7 +94,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="checkbox">
                                     <label>
                                         <input type="checkbox" id="bookly-show-blocked-timeslots" <?php checked( get_option( 'bookly_app_show_blocked_timeslots' ) ) ?>>
@@ -104,7 +102,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="checkbox">
                                     <label>
                                         <input type="checkbox" id="bookly-show-day-one-column" <?php checked( get_option( 'bookly_app_show_day_one_column' ) ) ?>>
@@ -112,9 +110,17 @@
                                     </label>
                                 </div>
                             </div>
+                            <div class="col-md-3">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" id="bookly-show-time-zone-switcher" <?php checked( get_option( 'bookly_app_show_time_zone_switcher' ) ) ?>>
+                                        <?php _e( 'Show time zone switcher', 'bookly' ) ?>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div class="bookly-js-details-settings bookly-margin-top-lg" style="display:none">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="checkbox">
                                     <label>
                                         <input type="checkbox" id="bookly-cst-required-phone" <?php checked( get_option( 'bookly_cst_required_phone' ) ) ?>>
@@ -122,7 +128,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="checkbox">
                                     <label>
                                         <input type="checkbox" id="bookly-show-login-button" <?php checked( get_option( 'bookly_app_show_login_button' ) ) ?>>
@@ -130,11 +136,19 @@
                                     </label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="checkbox">
                                     <label>
                                         <input type="checkbox" id="bookly-cst-first-last-name" <?php checked( get_option( 'bookly_cst_first_last_name' ) ) ?> data-toggle="popover" data-trigger="focus" data-placement="auto bottom" data-content="<?php _e( 'Do not forget to update your email and SMS codes for customer names', 'bookly' ) ?>">
                                         <?php _e( 'Use first and last name instead of full name', 'bookly' ) ?>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" id="bookly-show-notes" <?php checked( get_option( 'bookly_app_show_notes' ) ) ?>>
+                                        <?php _e( 'Show notes field', 'bookly' ) ?>
                                     </label>
                                 </div>
                             </div>
@@ -159,6 +173,27 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="bookly-js-done-settings bookly-margin-top-lg" style="display:none">
+                            <div class="col-md-12">
+                                <div class="alert alert-info bookly-margin-top-lg bookly-margin-bottom-remove bookly-flexbox">
+                                    <div class="bookly-flex-row">
+                                        <div class="bookly-flex-cell" style="width:39px"><i class="alert-icon"></i></div>
+                                        <div class="bookly-flex-cell">
+                                            <div>
+                                                <?php _e( 'The booking form on this step may have different set or states of its elements. It depends on various conditions such as installed/activated add-ons, settings configuration or choices made on previous steps. Select option and click on the underlined text to edit.', 'bookly' ) ?>
+                                            </div>
+                                            <div class="bookly-margin-top-lg">
+                                                <select id="bookly-done-step-view" class="form-control">
+                                                    <option value="booking-success"><?php _e( 'Form view in case of successful booking', 'bookly' ) ?></option>
+                                                    <option value="booking-limit-error"><?php _e( 'Form view in case the number of bookings exceeds the limit', 'bookly' ) ?></option>
+                                                    <option value="booking-processing"><?php _e( 'Form view in case of payment has been accepted for processing', 'bookly' ) ?></option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="panel panel-default bookly-margin-top-lg">
@@ -169,10 +204,10 @@
                                         <?php // Render unique data per step
                                         switch ( $step ) :
                                             case 1: include '_1_service.php';   break;
-                                            case 2: \Bookly\Lib\Proxy\ServiceExtras::renderAppearance( $this->render( '_progress_tracker', compact( 'step', 'editable' ), false ) );
+                                            case 2: Proxy\ServiceExtras::renderAppearance( $this->render( '_progress_tracker', compact( 'step', 'editable' ), false ) );
                                                 break;
                                             case 3: include '_3_time.php';      break;
-                                            case 4: \Bookly\Lib\Proxy\RecurringAppointments::renderAppearance( $this->render( '_progress_tracker', compact( 'step', 'editable' ), false ) );
+                                            case 4: Proxy\RecurringAppointments::renderAppearance( $this->render( '_progress_tracker', compact( 'step', 'editable' ), false ) );
                                                 break;
                                             case 5: include '_5_cart.php';      break;
                                             case 6: include '_6_details.php';   break;
@@ -190,8 +225,8 @@
                 </div>
             </div>
             <div class="panel-footer">
-                <?php \Bookly\Lib\Utils\Common::submitButton( 'ajax-send-appearance' ) ?>
-                <?php \Bookly\Lib\Utils\Common::resetButton() ?>
+                <?php Common::submitButton( 'ajax-send-appearance' ) ?>
+                <?php Common::resetButton() ?>
             </div>
         </div>
     </div>

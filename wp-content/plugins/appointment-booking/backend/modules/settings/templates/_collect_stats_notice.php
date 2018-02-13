@@ -2,8 +2,7 @@
 /**
  * Template to show notice about "we'r starting to collect statistics about usage"
  */
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
-?>
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly ?>
 <div id="bookly-tbs" class="wrap">
     <div id="bookly-collect-stats-notice" class="alert alert-info bookly-tbs-body bookly-flexbox">
         <div class="bookly-flex-row">

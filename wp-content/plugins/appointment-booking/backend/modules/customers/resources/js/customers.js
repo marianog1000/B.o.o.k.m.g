@@ -14,59 +14,66 @@ jQuery(function($) {
         remembered_choice,
         row
         ;
+    var columns = [
+        {data: 'full_name', render: $.fn.dataTable.render.text(), visible: BooklyL10n.first_last_name == 0},
+        {data: 'first_name', render: $.fn.dataTable.render.text(), visible: BooklyL10n.first_last_name == 1},
+        {data: 'last_name', render: $.fn.dataTable.render.text(), visible: BooklyL10n.first_last_name == 1},
+        {data: 'wp_user', render: $.fn.dataTable.render.text()}
+    ];
+    if (BooklyL10n.groups == 1) {
+        columns.push({data: 'group_name', render: $.fn.dataTable.render.text()});
+    }
+    columns = columns.concat([
+        {data: 'phone', render: $.fn.dataTable.render.text()},
+        {data: 'email', render: $.fn.dataTable.render.text()},
+        {data: 'notes', render: $.fn.dataTable.render.text()},
+        {data: 'last_appointment'},
+        {data: 'total_appointments'},
+        {data: 'payments'}
+    ]);
 
     /**
      * Init DataTables.
      */
     var dt = $customers_list.DataTable({
-        order: [[ 0, 'asc' ]],
-        info: false,
-        searching: false,
+        order       : [[0, 'asc']],
+        info        : false,
+        searching   : false,
         lengthChange: false,
-        pageLength: 25,
-        pagingType: 'numbers',
-        processing: true,
-        responsive: true,
-        serverSide: true,
-        ajax: {
+        pageLength  : 25,
+        pagingType  : 'numbers',
+        processing  : true,
+        responsive  : true,
+        serverSide  : true,
+        ajax        : {
             url : ajaxurl,
             type: 'POST',
             data: function (d) {
                 return $.extend({}, d, {
-                    action: 'bookly_get_customers',
-                    csrf_token : BooklyL10n.csrf_token,
-                    filter: $filter.val()
+                    action    : 'bookly_get_customers',
+                    csrf_token: BooklyL10n.csrf_token,
+                    filter    : $filter.val()
                 });
             }
         },
-        columns: [
-            { data: 'full_name', render: $.fn.dataTable.render.text(), visible: BooklyL10n.first_last_name == 0 },
-            { data: 'first_name', render: $.fn.dataTable.render.text(), visible: BooklyL10n.first_last_name == 1 },
-            { data: 'last_name', render: $.fn.dataTable.render.text(), visible: BooklyL10n.first_last_name == 1 },
-            { data: 'wp_user', render: $.fn.dataTable.render.text() },
-            { data: 'phone', render: $.fn.dataTable.render.text() },
-            { data: 'email', render: $.fn.dataTable.render.text() },
-            { data: 'notes', render: $.fn.dataTable.render.text() },
-            { data: 'last_appointment' },
-            { data: 'total_appointments' },
-            { data: 'payments' },
+        columns: columns.concat([
             {
                 responsivePriority: 1,
-                orderable: false,
-                searchable: false,
-                render: function ( data, type, row, meta ) {
+                orderable         : false,
+                searchable        : false,
+                render            : function (data, type, row, meta) {
                     return '<button type="button" class="btn btn-default" data-toggle="modal" data-target="#bookly-customer-dialog"><i class="glyphicon glyphicon-edit"></i> ' + BooklyL10n.edit + '</button>';
                 }
             },
             {
                 responsivePriority: 1,
-                orderable: false,
-                searchable: false,
-                render: function ( data, type, row, meta ) {
+                orderable         : false,
+                searchable        : false,
+                render            : function (data, type, row, meta) {
                     return '<input type="checkbox" value="' + row.id + '">';
                 }
             }
-        ],
+        ]),
         dom: "<'row'<'col-sm-6'l><'col-sm-6'f>>" +
             "<'row'<'col-sm-12'tr>>" +
             "<'row pull-left'<'col-sm-12 bookly-margin-top-lg'p>>",
@@ -122,6 +129,7 @@ jQuery(function($) {
                 full_name  : '',
                 first_name : '',
                 last_name  : '',
+                group_id   : '',
                 phone      : '',
                 email      : '',
                 notes      : '',

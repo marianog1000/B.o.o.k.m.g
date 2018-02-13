@@ -1,30 +1,18 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+use Bookly\Backend\Modules\Appearance\Components;
+use Bookly\Lib\Proxy;
 /** @var Bookly\Backend\Modules\Appearance\Lib\Helper $editable */
 ?>
 <div class="bookly-form">
     <?php include '_progress_tracker.php' ?>
-    <div class="bookly-box bookly-js-payment-single-app">
-        <?php $editable::renderText( 'bookly_l10n_info_coupon_single_app', $this->render( '_codes', array( 'step' => 7 ), false ) ) ?>
-    </div>
-    <div class="bookly-box bookly-js-payment-several-apps" style="display:none">
-        <?php $editable::renderText( 'bookly_l10n_info_coupon_several_apps', $this->render( '_codes', array( 'step' => 7, 'extra_codes' => 1), false ) ) ?>
-    </div>
+    <?php Proxy\Coupons::renderAppearance() ?>
 
-    <div class="bookly-box bookly-list">
-        <?php $editable::renderString( array( 'bookly_l10n_label_coupon', ) ) ?>
-        <div class="bookly-inline-block">
-            <input class="bookly-user-coupon" type="text" />
-            <div class="bookly-btn bookly-inline-block">
-                <?php $editable::renderString( array( 'bookly_l10n_button_apply', ) ) ?>
-            </div>
-        </div>
-    </div>
     <div class="bookly-payment-nav">
         <div class="bookly-box bookly-js-payment-single-app">
-            <?php $editable::renderText( 'bookly_l10n_info_payment_step_single_app', $this->render( '_codes', array( 'step' => 7 ), false ), 'right' ) ?>
+            <?php $editable::renderText( 'bookly_l10n_info_payment_step_single_app', Components::getInstance()->renderCodes( array( 'step' => 7 ), false ), 'right' ) ?>
         </div>
         <div class="bookly-box bookly-js-payment-several-apps" style="display:none">
-            <?php $editable::renderText( 'bookly_l10n_info_payment_step_several_apps', $this->render( '_codes', array( 'step' => 7, 'extra_codes' => 1 ), false ), 'right' ) ?>
+            <?php $editable::renderText( 'bookly_l10n_info_payment_step_several_apps', Components::getInstance()->renderCodes( array( 'step' => 7, 'extra_codes' => 1 ), false ), 'right' ) ?>
         </div>
 
         <div class="bookly-box bookly-list">
@@ -42,7 +30,11 @@
             </label>
         </div>
 
-        <div class="bookly-box bookly-list">
+        <div class="bookly-box bookly-list"
+            <?php if ( Proxy\Shared::showAppearanceCreditCard( false ) == false ) : ?>
+             style="display: none"
+            <?php endif ?>
+        >
             <label>
                 <input type="radio" name="payment" id="bookly-card-payment" />
                 <?php $editable::renderString( array( 'bookly_l10n_label_pay_ccard', ) ) ?>
@@ -53,18 +45,10 @@
             </form>
         </div>
 
-        <div class="bookly-box bookly-list">
-            <label>
-                <input type="radio" name="payment" />
-                <?php $editable::renderString( array( 'bookly_l10n_label_pay_mollie', ) ) ?>
-                <img src="<?php echo plugins_url( 'frontend/resources/images/mollie.png', \Bookly\Lib\Plugin::getMainFile() ) ?>" alt="mollie" />
-            </label>
-        </div>
-
-        <?php do_action( 'bookly_render_appearance_payment_gateway_selector' ) ?>
+        <?php Proxy\Shared::renderAppearancePaymentGatewaySelector() ?>
     </div>
 
-    <?php \Bookly\Lib\Proxy\RecurringAppointments::renderAppearanceEditableInfoMessage() ?>
+    <?php Proxy\RecurringAppointments::renderAppearanceInfoMessage() ?>
 
     <div class="bookly-box bookly-nav-steps">
         <div class="bookly-back-step bookly-js-back-step bookly-btn">

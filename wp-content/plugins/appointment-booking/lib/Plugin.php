@@ -34,6 +34,7 @@ abstract class Plugin extends Base\Plugin
                     Modules\Support\Components::getInstance()->renderNpsNotice();
                     // Collect stats notice.
                     Modules\Settings\Components::getInstance()->renderCollectStatsNotice();
+                    Modules\License\Components::getInstance()->renderPurchaseNotice();
 
                     if ( Config::booklyExpired() || get_option( 'bookly_grace_hide_admin_notice_time' ) < time() ) {
                         Modules\License\Components::getInstance()->renderLicenseRequired();
@@ -42,6 +43,17 @@ abstract class Plugin extends Base\Plugin
                 Modules\License\Components::getInstance()->renderLicenseNotice( $bookly_page );
             }, 10, 0 );
         }
+
+        add_filter( 'bookly_apply_gateway_price_correction', function ( array $cart_info, $gateway ) {
+            if ( $gateway === Entities\Payment::TYPE_PAYPAL && Config::paypalEnabled() ) {
+                $deposit          = $cart_info[1];
+                $cart_info[1]     = Utils\Price::correction( $cart_info[1], - (float) get_option( 'bookly_paypal_increase' ), - (float) get_option( 'bookly_paypal_addition' ) );
+                $price_correction = $cart_info[1] - $deposit;
+                $cart_info[0]    += $price_correction;
+            }
+
+            return $cart_info;
+        }, 10, 2 );
 
         add_filter( 'puc_request_info_result-' . Plugin::getSlug(), function ( $pluginInfo, $result ) {
             if ( $result instanceof \WP_Error ) {
@@ -55,7 +67,7 @@ abstract class Plugin extends Base\Plugin
                         if ( ! $message->isLoaded() ) {
                             $message->setFields( $data );
                             $message
-                                ->set( 'created', current_time( 'mysql' ) )
+                                ->setCreated( current_time( 'mysql' ) )
                                 ->save();
                         }
                     }
@@ -138,9 +150,43 @@ Bookly SMS Team.', 'bookly' );
                 }
             }
 
+            if ( get_option( 'bookly_lic_repeat_time' ) < time() ) {
+                update_option( 'bookly_lic_repeat_time', time() + 7776000 );
+                if ( get_option( 'bookly_envato_purchase_code' ) == '' ) {
+                    foreach ( get_users( array( 'role' => 'administrator' ) ) as $admin ) {
+                        update_user_meta( $admin->ID, 'show_purchase_reminder', '1' );
+                    }
+                }
+            }
+
             // Statistics routine.
             if ( get_option( 'bookly_gen_collect_stats' ) ) {
                 API::sendStats();
+            }
+        }, 10, 0 );
+
+        add_action( 'bookly_hourly_routine', function () {
+            // Get list of outdated unpaid payments in format [ 'id' => 'details' ]
+            $payments = Proxy\Shared::getOutdatedUnpaidPayments();
+            if ( $payments ) {
+                $ca_ids = array();
+                foreach ( $payments as $payment_details ) {
+                    $details = json_decode( $payment_details, true );
+                    $ca_ids  = array_merge( $ca_ids, array_map( function ( $item ) { return $item['ca_id']; }, $details['items'] ) );
+                }
+                Entities\Payment::query()
+                    ->update()
+                    ->set( 'status', Entities\Payment::STATUS_REJECTED )
+                    ->whereIn( 'id', array_keys( $payments ) )
+                    ->execute();
+                if ( ! empty( $ca_ids ) ) {
+                    Entities\CustomerAppointment::query()
+                        ->update()
+                        ->set( 'status', Entities\CustomerAppointment::STATUS_REJECTED )
+                        ->set( 'status_changed_at', current_time( 'mysql' ) )
+                        ->whereIn( 'id', $ca_ids )
+                        ->execute();
+                }
             }
         }, 10, 0 );
 
@@ -155,19 +201,40 @@ Bookly SMS Team.', 'bookly' );
                 return $user;
             }, 99, 1 );
         }
+
+        // For admin notices about SMS weekly summary and etc.
+        if ( ! wp_next_scheduled( 'bookly_daily_routine' ) ) {
+            wp_schedule_event( time(), 'daily', 'bookly_daily_routine' );
+        }
+
+        // For cleaning not paid appointments
+        if ( ! wp_next_scheduled( 'bookly_hourly_routine' ) ) {
+            wp_schedule_event( time(), 'hourly', 'bookly_hourly_routine' );
+        }
     }
 
     public static function run()
     {
+        parent::run();
         $dir = Plugin::getDirectory() . '/lib/addons/';
         if ( is_dir( $dir ) ) {
             foreach ( glob( $dir . 'bookly-addon-*', GLOB_ONLYDIR ) as $path ) {
-
-                include_once $path . '/main.php';
+                include_once $path . '/autoload.php';
+                $namespace = implode( '', array_map( 'ucfirst', explode( '-', str_replace( '-addon-', '-', basename( $path ) ) ) ) );
+                /** @var \Bookly\Lib\Base\Plugin $plugin_class */
+                $plugin_class = '\\' . $namespace . '\Lib\Plugin';
+                $version_option_name = $plugin_class::getPrefix() . 'data_loaded';
+                if ( get_option( $version_option_name ) === false ) {
+                    // Install embedded add-on.
+                    add_action( 'plugins_loaded', function () use ( $plugin_class ) {
+                        $plugin_class::activate( 0 );
+                        $plugin_class::run();
+                    }, 99, 1 );
+                } else {
+                    $plugin_class::run();
+                }
             }
         }
-
-        parent::run();
     }
 
 }

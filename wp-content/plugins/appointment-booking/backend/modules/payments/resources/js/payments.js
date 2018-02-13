@@ -10,7 +10,19 @@ jQuery(function($) {
         $payment_total    = $('#bookly-payment-total'),
         $delete_button    = $('#bookly-delete')
         ;
-
+    $('.bookly-js-select')
+        .val(null)
+        .on('select2:unselecting', function(e) {
+            e.preventDefault();
+            $(this).val(null).trigger('change');
+        })
+        .select2({
+            allowClear: true,
+            theme: 'bootstrap',
+            language: {
+                noResults: function() { return BooklyL10n.no_result_found; }
+            }
+        });
     /**
      * Init DataTables.
      */
@@ -133,13 +145,7 @@ jQuery(function($) {
         }
     );
 
-    /**
-     * On filters change.
-     */
-    $('.bookly-js-chosen-select').chosen({
-        allow_single_deselect: true,
-        disable_search_threshold: 10
-    });
+
     $date_filter.on('apply.daterangepicker', function () { dt.ajax.reload(); });
     $type_filter.on('change', function () { dt.ajax.reload(); });
     $staff_filter.on('change', function () { dt.ajax.reload(); });

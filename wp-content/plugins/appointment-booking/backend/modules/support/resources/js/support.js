@@ -106,8 +106,10 @@ jQuery(function ($) {
     $('#bookly-js-mark-read-all-messages').on('click', function (e) {
         e.preventDefault();
         var $link = $(this),
-            ladda = Ladda.create($('#bookly-bell').get(0));
-        $link.closest(".dropdown-menu").prev().dropdown("toggle");
+            ladda = Ladda.create($('#bookly-bell').get(0)),
+            $dropdown = $link.closest(".dropdown-menu");
+
+        $dropdown.prev().dropdown("toggle");
         ladda.start();
         $.ajax({
             url  : ajaxurl,
@@ -121,6 +123,9 @@ jQuery(function ($) {
                 if (response.success) {
                     $('.bookly-js-new-messages-count').remove();
                     $link.closest('li').remove();
+                    $('a', $dropdown).each(function () {
+                        $(this).html($(this).text());
+                    });
                 }
             },
             complete : function () {

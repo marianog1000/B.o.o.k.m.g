@@ -24,6 +24,7 @@ abstract class Price
         'CZK' => array( 'symbol' => 'Kč',   'format' => '{price|2} {symbol}' ),
         'DKK' => array( 'symbol' => 'kr',   'format' => '{price|2} {symbol}' ),
         'DOP' => array( 'symbol' => 'RD$',  'format' => '{symbol}{price|2}' ),
+        'DZD' => array( 'symbol' => 'DA',   'format' => '{price|2} {symbol}' ),
         'EGP' => array( 'symbol' => 'EGP',  'format' => '{symbol} {price|2}' ),
         'EUR' => array( 'symbol' => '€',    'format' => '{symbol}{price|2}' ),
         'GBP' => array( 'symbol' => '£',    'format' => '{symbol}{price|2}' ),
@@ -133,5 +134,21 @@ abstract class Price
     public static function getFormats()
     {
         return self::$formats;
+    }
+
+    /**
+     * @param double $price
+     * @param double $discount
+     * @param double $deduction
+     * @return float|int
+     */
+    public static function correction( $price, $discount, $deduction )
+    {
+        $price     = (float) $price;
+        $discount  = (float) $discount;
+        $deduction = (float) $deduction;
+        $amount = round( $price * ( 100 - $discount ) / 100 - $deduction, 2 );
+
+        return $amount > 0 ? $amount : 0;
     }
 }

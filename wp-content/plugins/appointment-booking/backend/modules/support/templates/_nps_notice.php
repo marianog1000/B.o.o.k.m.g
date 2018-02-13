@@ -23,7 +23,7 @@
                         <label for="bookly-nps-email" class="control-label"><?php _e( 'Please enter your email (optional)', 'bookly' ) ?></label>
                         <input type="text" id="bookly-nps-email" class="form-control" value="<?php echo esc_attr( $current_user->user_email ) ?>" />
                     </div>
-                    <?php \Bookly\Lib\Utils\Common::customButton( 'bookly-nps-btn', 'btn-success', __( 'Send', 'bookly' ) ) ?>
+                    <?php Bookly\Lib\Utils\Common::customButton( 'bookly-nps-btn', 'btn-success', __( 'Send', 'bookly' ) ) ?>
                 </div>
                 <div id="bookly-nps-thanks" style="display:none;">
                     <?php printf(

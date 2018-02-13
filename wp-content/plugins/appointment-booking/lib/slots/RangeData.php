@@ -13,6 +13,8 @@ class RangeData
     protected $staff_id;
     /** @var int */
     protected $state;
+    /** @var int */
+    protected $on_waiting_list;
     /** @var Range */
     protected $next_slot;
 
@@ -22,14 +24,16 @@ class RangeData
      * @param int $service_id
      * @param int $staff_id
      * @param int $state
+     * @param int $on_waiting_list
      * @param Range|null $next_slot
      */
-    public function __construct( $service_id, $staff_id, $state = Range::AVAILABLE, $next_slot = null )
+    public function __construct( $service_id, $staff_id, $state = Range::AVAILABLE, $on_waiting_list = 0, $next_slot = null )
     {
-        $this->service_id = $service_id;
-        $this->staff_id   = $staff_id;
-        $this->state      = $state;
-        $this->next_slot  = $next_slot;
+        $this->service_id      = $service_id;
+        $this->staff_id        = $staff_id;
+        $this->state           = $state;
+        $this->on_waiting_list = $on_waiting_list;
+        $this->next_slot       = $next_slot;
     }
 
     /**
@@ -63,6 +67,16 @@ class RangeData
     }
 
     /**
+     * Get number of persons on waiting list.
+     *
+     * @return int
+     */
+    public function onWaitingList()
+    {
+        return $this->on_waiting_list;
+    }
+
+    /**
      * Get next slot.
      *
      * @return Range
@@ -90,7 +104,7 @@ class RangeData
      */
     public function replaceStaffId( $new_staff_id )
     {
-        return new static( $this->service_id, $new_staff_id, $this->state, $this->next_slot );
+        return new static( $this->service_id, $new_staff_id, $this->state, $this->on_waiting_list, $this->next_slot );
     }
 
     /**
@@ -101,7 +115,18 @@ class RangeData
      */
     public function replaceState( $new_state )
     {
-        return new static( $this->service_id, $this->staff_id, $new_state, $this->next_slot );
+        return new static( $this->service_id, $this->staff_id, $new_state, $this->on_waiting_list, $this->next_slot );
+    }
+
+    /**
+     * Create a copy of the data with new on waiting list number.
+     *
+     * @param int $new_on_waiting_list
+     * @return static
+     */
+    public function replaceOnWaitingList( $new_on_waiting_list )
+    {
+        return new static( $this->service_id, $this->staff_id, $this->state, $new_on_waiting_list, $this->next_slot );
     }
 
     /**
@@ -112,6 +137,6 @@ class RangeData
      */
     public function replaceNextSlot( $new_next_slot )
     {
-        return new static( $this->service_id, $this->staff_id, $this->state, $new_next_slot );
+        return new static( $this->service_id, $this->staff_id, $this->state, $this->on_waiting_list, $new_next_slot );
     }
 }

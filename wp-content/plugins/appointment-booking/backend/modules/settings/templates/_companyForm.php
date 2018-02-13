@@ -33,7 +33,7 @@
         </div>
         <div class="col-xs-9 col-lg-10">
             <div class="bookly-flex-cell bookly-vertical-middle">
-                <?php \Bookly\Lib\Utils\Common::optionText( 'bookly_co_name', __( 'Company name', 'bookly' ) ) ?>
+                <?php Bookly\Lib\Utils\Common::optionText( 'bookly_co_name', __( 'Company name', 'bookly' ) ) ?>
             </div>
         </div>
     </div>
@@ -43,12 +43,12 @@
         <textarea id="bookly_co_address" class="form-control" rows="5"
                   name="bookly_co_address"><?php form_option( 'bookly_co_address' ) ?></textarea>
     </div>
-    <?php \Bookly\Lib\Utils\Common::optionText( 'bookly_co_phone', __( 'Phone', 'bookly' ) ) ?>
-    <?php \Bookly\Lib\Utils\Common::optionText( 'bookly_co_website', __( 'Website', 'bookly' ) ) ?>
+    <?php Bookly\Lib\Utils\Common::optionText( 'bookly_co_phone', __( 'Phone', 'bookly' ) ) ?>
+    <?php Bookly\Lib\Utils\Common::optionText( 'bookly_co_website', __( 'Website', 'bookly' ) ) ?>
 
     <div class="panel-footer">
-        <?php \Bookly\Lib\Utils\Common::csrf() ?>
-        <?php \Bookly\Lib\Utils\Common::submitButton() ?>
-        <?php \Bookly\Lib\Utils\Common::resetButton( 'bookly-company-reset' ) ?>
+        <?php Bookly\Lib\Utils\Common::csrf() ?>
+        <?php Bookly\Lib\Utils\Common::submitButton() ?>
+        <?php Bookly\Lib\Utils\Common::resetButton( 'bookly-company-reset' ) ?>
     </div>
 </form>

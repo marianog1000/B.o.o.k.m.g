@@ -2,6 +2,7 @@
 namespace Bookly\Frontend\Modules\CustomerProfile;
 
 use Bookly\Lib;
+use Bookly\Lib\Entities\Stat;
 
 /**
  * Class Controller
@@ -71,14 +72,19 @@ class Controller extends Lib\Base\Controller
                 'cancel'   => __( 'Cancel', 'bookly' ),
                 'status'   => __( 'Status', 'bookly' ),
             );
-            foreach ( Lib\Utils\Common::getTranslatedCustomFields() as $field ) {
-                if ( ! in_array( $field->type, array( 'captcha', 'text-content' ) ) ) {
-                    $titles[ $field->id ] = $field->label;
+            if ( Lib\Config::customFieldsEnabled() ) {
+                foreach ( (array) Lib\Proxy\CustomFields::getTranslated() as $field ) {
+                    if ( ! in_array( $field->type, array( 'captcha', 'text-content', 'file' ) ) ) {
+                        $titles[ $field->id ] = $field->label;
+                    }
                 }
             }
         }
 
         $url_cancel = add_query_arg( array( 'action' => 'bookly_cancel_appointment', 'csrf_token' => Lib\Utils\Common::getCsrfToken() ) , $ajax_url );
+        if ( is_user_logged_in() ) {
+            Stat::record( 'view_customer_profile', 1 );
+        }
 
         return $assets . $this->render( 'short_code', compact( 'ajax_url', 'appointments', 'attributes', 'url_cancel', 'titles', 'more', 'allow_cancel' ), false );
     }
@@ -96,18 +102,11 @@ class Controller extends Lib\Base\Controller
             $category = new Lib\Entities\Category( array( 'id' => $appointment['category_id'], 'name' => $appointment['category'] ) );
             $service  = new Lib\Entities\Service( array( 'id' => $appointment['service_id'],  'title' => $appointment['service'] ) );
             $staff    = new Lib\Entities\Staff( array( 'id' => $appointment['staff_id'],  'full_name' => $appointment['staff'] ) );
-            $appointment['category'] = $category->getName();
-            $appointment['service']  = $service->getTitle();
-            $appointment['staff']    = $staff->getName() . ( $appointment['staff_any'] ? $postfix_any : '' );
-            // Prepare custom fields.
-            $custom_fields = array();
-            $ca = new Lib\Entities\CustomerAppointment( $appointment );
-            foreach ( $ca->getCustomFields() as $field ) {
-                $custom_fields[ $field['id'] ] = $field['value'];
-            }
-            $appointment['custom_fields'] = $custom_fields;
+            $appointment['category'] = $category->getTranslatedName();
+            $appointment['service']  = $service->getTranslatedTitle();
+            $appointment['staff']    = $staff->getTranslatedName() . ( $appointment['staff_any'] ? $postfix_any : '' );
             // Prepare extras.
-            $appointment['extras'] = (array) Lib\Proxy\ServiceExtras::getInfo( $appointment['extras'], true );
+            $appointment['extras'] = (array) Lib\Proxy\ServiceExtras::getInfo( json_decode( $appointment['extras'], true ), true );
         }
 
         return $appointments;

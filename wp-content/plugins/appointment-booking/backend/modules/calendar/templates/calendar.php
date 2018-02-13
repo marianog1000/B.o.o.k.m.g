@@ -1,4 +1,6 @@
-<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly ?>
+<?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+/** @var Bookly\Lib\Entities\Staff[] $staff_members */
+?>
 <style>
     .fc-slats tr { height: <?php echo max( 21, (int) ( 0.43 * get_option( 'bookly_gen_time_slot_length' ) ) ) ?>px; }
     .fc-time-grid-event.fc-short .fc-time::after { content: '' !important; }
@@ -9,25 +11,25 @@
             <div class="bookly-page-title">
                 <?php _e( 'Calendar', 'bookly' ) ?>
             </div>
-            <?php if ( \Bookly\Lib\Utils\Common::isCurrentUserAdmin() ) : ?>
-                <?php \Bookly\Backend\Modules\Support\Components::getInstance()->renderButtons( $this::page_slug ) ?>
+            <?php if ( Bookly\Lib\Utils\Common::isCurrentUserAdmin() ) : ?>
+                <?php Bookly\Backend\Modules\Support\Components::getInstance()->renderButtons( $this::page_slug ) ?>
             <?php endif ?>
         </div>
         <div class="panel panel-default bookly-main bookly-fc-inner">
             <div class="panel-body">
                 <?php if ( $staff_members ) : ?>
                 <ul class="bookly-nav bookly-nav-tabs">
-                    <?php if ( \Bookly\Lib\Utils\Common::isCurrentUserAdmin() ) : ?>
+                    <?php if ( Bookly\Lib\Utils\Common::isCurrentUserAdmin() ) : ?>
                         <li class="bookly-nav-item bookly-js-calendar-tab" data-staff_id="0">
                             <?php _e( 'All', 'bookly' ) ?>
                         </li>
                     <?php endif ?>
                     <?php foreach ( $staff_members as $staff ) : ?>
-                        <li class="bookly-nav-item bookly-js-calendar-tab" data-staff_id="<?php echo $staff->id ?>" style="display: none">
-                            <?php echo $staff->full_name ?>
+                        <li class="bookly-nav-item bookly-js-calendar-tab" data-staff_id="<?php echo $staff->getId() ?>" style="display: none">
+                            <?php echo $staff->getFullName() ?>
                         </li>
                     <?php endforeach ?>
-                    <?php if ( \Bookly\Lib\Utils\Common::isCurrentUserAdmin() ) : ?>
+                    <?php if ( Bookly\Lib\Utils\Common::isCurrentUserAdmin() ) : ?>
                         <div class="btn-group pull-right" style="margin-top: 5px;">
                             <button class="btn btn-default dropdown-toggle bookly-flexbox" data-toggle="dropdown">
                                 <div class="bookly-flex-cell"><i class="dashicons dashicons-admin-users bookly-margin-right-md"></i></div>
@@ -44,8 +46,8 @@
                                     <li>
                                         <a class="checkbox" href="javascript:void(0)">
                                             <label>
-                                                <input type="checkbox" id="bookly-filter-staff-<?php echo $staff->id ?>" value="<?php echo $staff->id ?>" data-staff_name="<?php echo esc_attr( $staff->full_name ) ?>" class="bookly-js-check-entity">
-                                                <?php echo $staff->full_name ?>
+                                                <input type="checkbox" id="bookly-filter-staff-<?php echo $staff->getId() ?>" value="<?php echo $staff->getId() ?>" data-staff_name="<?php echo esc_attr( $staff->getFullName() ) ?>" class="bookly-js-check-entity">
+                                                <?php echo $staff->getFullName() ?>
                                             </label>
                                         </a>
                                     </li>
@@ -63,8 +65,8 @@
                         <div id="bookly-fc-wrapper" class="bookly-calendar">
                             <div class="bookly-js-calendar-element"></div>
                         </div>
-                        <?php \Bookly\Backend\Modules\Calendar\Components::getInstance()->renderAppointmentDialog() ?>
-                        <?php \Bookly\Lib\Proxy\Shared::renderComponentCalendar() ?>
+                        <?php Bookly\Backend\Modules\Calendar\Components::getInstance()->renderAppointmentDialog() ?>
+                        <?php Bookly\Lib\Proxy\Shared::renderComponentCalendar() ?>
                     <?php else : ?>
                         <div class="well">
                             <div class="h1"><?php _e( 'Welcome to Bookly!', 'bookly' ) ?></div>
@@ -76,10 +78,10 @@
                                 <li><?php _e( 'Add services and assign them to staff members.', 'bookly' ) ?></li>
                             </ol>
                             <hr>
-                            <a class="btn btn-success" href="<?php echo \Bookly\Lib\Utils\Common::escAdminUrl( Bookly\Backend\Modules\Staff\Controller::page_slug ) ?>">
+                            <a class="btn btn-success" href="<?php echo Bookly\Lib\Utils\Common::escAdminUrl( Bookly\Backend\Modules\Staff\Controller::page_slug ) ?>">
                                 <?php _e( 'Add Staff Members', 'bookly' ) ?>
                             </a>
-                            <a class="btn btn-success" href="<?php echo \Bookly\Lib\Utils\Common::escAdminUrl( Bookly\Backend\Modules\Services\Controller::page_slug ) ?>">
+                            <a class="btn btn-success" href="<?php echo Bookly\Lib\Utils\Common::escAdminUrl( Bookly\Backend\Modules\Services\Controller::page_slug ) ?>">
                                 <?php _e( 'Add Services', 'bookly' ) ?>
                             </a>
                         </div>
@@ -88,6 +90,6 @@
             </div>
         </div>
 
-        <?php \Bookly\Backend\Modules\Calendar\Components::getInstance()->renderDeleteDialog(); ?>
+        <?php Bookly\Backend\Modules\Calendar\Components::getInstance()->renderDeleteDialog(); ?>
     </div>
 </div>

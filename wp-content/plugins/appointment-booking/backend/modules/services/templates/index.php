@@ -99,4 +99,5 @@
             </div>
         </div>
     </div>
+    <?php \Bookly\Backend\Modules\Staff\Components::getInstance()->renderDeleteCascadeDialog() ?>
 </div>

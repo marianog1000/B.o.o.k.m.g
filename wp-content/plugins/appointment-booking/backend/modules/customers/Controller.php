@@ -45,7 +45,8 @@ class Controller extends Lib\Base\Controller
 
         wp_localize_script( 'bookly-customers.js', 'BooklyL10n', array(
             'csrf_token'      => Lib\Utils\Common::getCsrfToken(),
-            'first_last_name' => get_option( 'bookly_cst_first_last_name' ),
+            'first_last_name' => (int) Lib\Config::showFirstLastName(),
+            'groups'          => (int) Lib\Config::customerGroupsActive(),
             'edit'            => __( 'Edit', 'bookly' ),
             'are_you_sure'    => __( 'Are you sure?', 'bookly' ),
             'wp_users'        => get_users( array( 'fields' => array( 'ID', 'display_name' ), 'orderby' => 'display_name' ) ),
@@ -76,8 +77,7 @@ class Controller extends Lib\Base\Controller
 
         $total = $query->count();
 
-        $query
-            ->select( 'SQL_CALC_FOUND_ROWS c.*,
+        $select = 'SQL_CALC_FOUND_ROWS c.*,
                 (
                     SELECT MAX(a.start_date) FROM ' . Lib\Entities\Appointment::getTableName() . ' a
                         LEFT JOIN ' . Lib\Entities\CustomerAppointment::getTableName() . ' ca ON ca.appointment_id = a.id
@@ -94,9 +94,16 @@ class Controller extends Lib\Base\Controller
                                 WHERE ca.customer_id = c.id
                         )
                 ) AS payments,
-                wpu.display_name AS wp_user' )
+                wpu.display_name AS wp_user';
+
+        $select = Lib\Proxy\CustomerGroups::prepareCustomerSelect( $select );
+
+        $query
+            ->select( $select )
             ->tableJoin( $wpdb->users, 'wpu', 'wpu.ID = c.wp_user_id' )
             ->groupBy( 'c.id' );
+
+        $query = Lib\Proxy\CustomerGroups::prepareCustomerQuery( $query );
 
         if ( $filter != '' ) {
             $search_value = Lib\Query::escape( $filter );
@@ -115,11 +122,12 @@ class Controller extends Lib\Base\Controller
 
         $data = array();
         foreach ( $query->fetchArray() as $row ) {
-            $data[] = array(
+            $customer_data = array(
                 'id'                 => $row['id'],
                 'full_name'          => $row['full_name'],
                 'first_name'         => $row['first_name'],
                 'last_name'          => $row['last_name'],
+                'group_id'           => $row['group_id'],
                 'wp_user'            => $row['wp_user'],
                 'wp_user_id'         => $row['wp_user_id'],
                 'phone'              => $row['phone'],
@@ -130,6 +138,9 @@ class Controller extends Lib\Base\Controller
                 'total_appointments' => $row['total_appointments'],
                 'payments'           => Lib\Utils\Price::format( $row['payments'] ),
             );
+
+            $customer_data = Lib\Proxy\CustomerGroups::prepareCustomerData( $customer_data, $row );
+            $data[] = $customer_data;
         }
 
         wp_send_json( array(
@@ -157,21 +168,25 @@ class Controller extends Lib\Base\Controller
                 if ( ! $params['birthday'] ) {
                     $params['birthday'] = null;
                 }
+                if ( ! $params['group_id'] ) {
+                    $params['group_id'] = null;
+                }
                 $form->bind( $params );
                 /** @var Lib\Entities\Customer $customer */
                 $customer = $form->save();
                 if ( $customer ) {
                     $response['success']  = true;
                     $response['customer'] = array(
-                        'id'         => $customer->get( 'id' ),
-                        'wp_user_id' => $customer->get( 'wp_user_id' ),
-                        'full_name'  => $customer->get( 'full_name' ),
-                        'first_name' => $customer->get( 'first_name' ),
-                        'last_name'  => $customer->get( 'last_name' ),
-                        'phone'      => $customer->get( 'phone' ),
-                        'email'      => $customer->get( 'email' ),
-                        'notes'      => $customer->get( 'notes' ),
-                        'birthday'   => $customer->get( 'birthday' ),
+                        'id'         => $customer->getId(),
+                        'wp_user_id' => $customer->getWpUserId(),
+                        'full_name'  => $customer->getFullName(),
+                        'first_name' => $customer->getFirstName(),
+                        'last_name'  => $customer->getLastName(),
+                        'group_id'   => $customer->getGroupId(),
+                        'phone'      => $customer->getPhone(),
+                        'email'      => $customer->getEmail(),
+                        'notes'      => $customer->getNotes(),
+                        'birthday'   => $customer->getBirthday(),
                     );
                     break;
                 }
@@ -199,22 +214,27 @@ class Controller extends Lib\Base\Controller
     private function importCustomers()
     {
         @ini_set( 'auto_detect_line_endings', true );
-
+        $fields = array();
+        foreach ( array( 'full_name', 'first_name', 'last_name', 'phone', 'email', 'birthday' ) as $field ) {
+            if ( $this->getParameter( $field ) ) {
+                $fields[] = $field;
+            }
+        }
         $file = fopen( $_FILES['import_customers_file']['tmp_name'], 'r' );
         while ( $line = fgetcsv( $file, null, $this->getParameter( 'import_customers_delimiter' ) ) ) {
             if ( $line[0] != '' ) {
                 $customer = new Lib\Entities\Customer();
-                $customer->set( 'full_name', $line[0] );
-                if ( isset( $line[1] ) ) {
-                    $customer->set( 'phone', $line[1] );
-                }
-                if ( isset( $line[2] ) ) {
-                    $customer->set( 'email', $line[2] );
-                }
-                if ( isset( $line[3] ) && $line[3] != '' ) {
-                    $dob = date_create( $line[3] );
-                    if ( $dob !== false ) {
-                        $customer->set( 'birthday', $dob->format( 'Y-m-d' ) );
+                foreach ( $line as $number => $value ) {
+                    if ( $number < count( $fields ) ) {
+                        if ( $fields[ $number ] == 'birthday' ) {
+                            $dob = date_create( $value );
+                            if ( $dob !== false ) {
+                                $customer->setBirthday( $dob->format( 'Y-m-d' ) );
+                            }
+                        } else {
+                            $method = 'set' . implode( '', array_map( 'ucfirst', explode( '_', $fields[ $number ] ) ) );
+                            $customer->$method( $value );
+                        }
                     }
                 }
                 $customer->save();
@@ -250,7 +270,12 @@ class Controller extends Lib\Base\Controller
             'full_name'          => Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_name' ),
             'first_name'         => Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_first_name' ),
             'last_name'          => Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_last_name' ),
-            'wp_user'            => __( 'User', 'bookly' ),
+            'wp_user'            => __( 'User', 'bookly' )
+        );
+
+        $titles = Lib\Proxy\CustomerGroups::prepareCustomerExportTitles( $titles );
+
+        $titles = array_merge( $titles, array(
             'phone'              => Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_phone' ),
             'email'              => Lib\Utils\Common::getTranslatedOption( 'bookly_l10n_label_email' ),
             'notes'              => __( 'Notes', 'bookly' ),
@@ -258,7 +283,8 @@ class Controller extends Lib\Base\Controller
             'total_appointments' => __( 'Total appointments', 'bookly' ),
             'payments'           => __( 'Payments', 'bookly' ),
             'birthday'           => __( 'Date of birth', 'bookly' ),
-        );
+        ) );
+
         $header = array();
         $column = array();
 
@@ -271,17 +297,23 @@ class Controller extends Lib\Base\Controller
         fwrite( $output, pack( 'CCC', 0xef, 0xbb, 0xbf ) );
         fputcsv( $output, $header, $delimiter );
 
-        $rows = Lib\Entities\Customer::query( 'c' )
-            ->select( 'c.*, MAX(a.start_date) AS last_appointment,
+        $select = 'c.*, MAX(a.start_date) AS last_appointment,
                 COUNT(a.id) AS total_appointments,
                 COALESCE(SUM(p.total),0) AS payments,
-                wpu.display_name AS wp_user' )
+                wpu.display_name AS wp_user';
+        $select = Lib\Proxy\CustomerGroups::prepareCustomerSelect( $select );
+
+        $query = Lib\Entities\Customer::query( 'c' )
+            ->select( $select )
             ->leftJoin( 'CustomerAppointment', 'ca', 'ca.customer_id = c.id' )
             ->leftJoin( 'Appointment', 'a', 'a.id = ca.appointment_id' )
             ->leftJoin( 'Payment', 'p', 'p.id = ca.payment_id' )
             ->tableJoin( $wpdb->users, 'wpu', 'wpu.ID = c.wp_user_id' )
-            ->groupBy( 'c.id' )
-            ->fetchArray();
+            ->groupBy( 'c.id' );
+
+        $query = Lib\Proxy\CustomerGroups::prepareCustomerQuery( $query );
+
+        $rows = $query->fetchArray();
 
         foreach ( $rows as $row ) {
             $row_data = array_fill( 0, count( $column ), '' );

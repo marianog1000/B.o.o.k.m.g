@@ -1,7 +1,8 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 use Bookly\Lib\Utils\Price;
 use Bookly\Lib\Utils\DateTime;
-
+use Bookly\Lib\Proxy;
+use Bookly\Lib\Config;
 /**
  * @var Bookly\Backend\Modules\Appearance\Lib\Helper $editable
  * @var WP_Locale $wp_locale
@@ -19,9 +20,9 @@ global $wp_locale;
         </div>
         <div class="bookly-mobile-step-1 bookly-js-mobile-step-1 bookly-box">
             <div class="bookly-js-chain-item bookly-table bookly-box">
-                <?php if ( \Bookly\Lib\Config::locationsEnabled() ) : ?>
+                <?php if ( Config::locationsEnabled() ) : ?>
                     <div class="bookly-form-group">
-                        <?php \Bookly\Lib\Proxy\Locations::renderAppearance() ?>
+                        <?php Proxy\Locations::renderAppearance() ?>
                     </div>
                 <?php endif ?>
                 <div class="bookly-form-group">
@@ -96,22 +97,13 @@ global $wp_locale;
                         </select>
                     </div>
                 </div>
-                <div class="bookly-form-group">
-                    <?php $editable::renderLabel( array( 'bookly_l10n_label_number_of_persons', ) ) ?>
-                    <div>
-                        <select class="bookly-select-mobile bookly-js-select-number-of-persons">
-                            <option>1</option>
-                            <option>2</option>
-                            <option>3</option>
-                        </select>
-                    </div>
-                </div>
-                <?php if ( \Bookly\Lib\Config::multiplyAppointmentsEnabled() ) : ?>
+                <?php Proxy\GroupBooking::renderAppearance() ?>
+                <?php if ( Config::multiplyAppointmentsEnabled() ) : ?>
                     <div class="bookly-form-group">
-                        <?php \Bookly\Lib\Proxy\MultiplyAppointments::renderAppearance() ?>
+                        <?php Proxy\MultiplyAppointments::renderAppearance() ?>
                     </div>
                 <?php endif ?>
-                <?php if ( \Bookly\Lib\Config::chainAppointmentsEnabled() ) : ?>
+                <?php if ( Config::chainAppointmentsEnabled() ) : ?>
                     <div class="bookly-form-group">
                         <label></label>
                         <div>

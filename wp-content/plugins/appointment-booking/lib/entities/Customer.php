@@ -9,21 +9,39 @@ use Bookly\Lib;
  */
 class Customer extends Lib\Base\Entity
 {
+    /** @var  int */
+    protected $wp_user_id;
+    /** @var  string */
+    protected $full_name = '';
+    /** @var  string */
+    protected $first_name = '';
+    /** @var  string */
+    protected $last_name = '';
+    /** @var  int */
+    protected $group_id;
+    /** @var  string */
+    protected $phone = '';
+    /** @var  string */
+    protected $email = '';
+    /** @var  string */
+    protected $notes = '';
+    /** @var  string */
+    protected $birthday;
+
     protected static $table = 'ab_customers';
 
     protected static $schema = array(
         'id'         => array( 'format' => '%d' ),
         'wp_user_id' => array( 'format' => '%d' ),
-        'full_name'  => array( 'format' => '%s', 'default' => '' ),
-        'first_name' => array( 'format' => '%s', 'default' => '' ),
-        'last_name'  => array( 'format' => '%s', 'default' => '' ),
-        'phone'      => array( 'format' => '%s', 'default' => '' ),
-        'email'      => array( 'format' => '%s', 'default' => '' ),
-        'notes'      => array( 'format' => '%s', 'default' => '' ),
+        'full_name'  => array( 'format' => '%s' ),
+        'first_name' => array( 'format' => '%s' ),
+        'last_name'  => array( 'format' => '%s' ),
+        'group_id'   => array( 'format' => '%d' ),
+        'phone'      => array( 'format' => '%s' ),
+        'email'      => array( 'format' => '%s' ),
+        'notes'      => array( 'format' => '%s' ),
         'birthday'   => array( 'format' => '%s' ),
     );
-
-    protected static $cache = array();
 
     /**
      * Delete customer and associated WP user if requested.
@@ -32,16 +50,16 @@ class Customer extends Lib\Base\Entity
      */
     public function deleteWithWPUser( $with_wp_user )
     {
-        if ( $with_wp_user && $this->get( 'wp_user_id' )
+        if ( $with_wp_user && $this->getWpUserId()
              // Can't delete your WP account
-             && ( $this->get( 'wp_user_id' ) != get_current_user_id() ) ) {
-            wp_delete_user( $this->get( 'wp_user_id' ) );
+             && ( $this->getWpUserId() != get_current_user_id() ) ) {
+            wp_delete_user( $this->getWpUserId() );
         }
 
         /** @var Appointment[] $appointments */
         $appointments = Appointment::query( 'a' )
             ->leftJoin( 'CustomerAppointment', 'ca', 'ca.appointment_id = a.id' )
-            ->where( 'ca.customer_id', $this->get( 'id' ) )
+            ->where( 'ca.customer_id', $this->getId() )
             ->groupBy( 'a.id' )
             ->find()
         ;
@@ -107,7 +125,7 @@ class Customer extends Lib\Base\Entity
         return Appointment::query( 'a' )
             ->select( 'ca.id AS ca_id,
                     c.name AS category,
-                    s.title AS service,
+                    COALESCE(s.title, a.custom_service_name) AS service,
                     st.full_name AS staff,
                     a.staff_id,
                     a.staff_any,
@@ -119,14 +137,14 @@ class Customer extends Lib\Base\Entity
                     ca.number_of_persons,
                     ca.custom_fields,
                     ca.appointment_id,
-                    IF( ca.compound_service_id IS NULL, ss.price, s.price ) * ca.number_of_persons AS price,
-                    IF( ca.time_zone_offset IS NULL,
+                    IF (ca.compound_service_id IS NULL, COALESCE(ss.price, a.custom_service_price), s.price) AS price,
+                    IF (ca.time_zone_offset IS NULL,
                         a.start_date,
                         DATE_SUB(a.start_date, INTERVAL ' . $client_diff . ' + ca.time_zone_offset MINUTE)
-                       ) AS start_date,
+                    ) AS start_date,
                     ca.token' )
             ->leftJoin( 'Staff', 'st', 'st.id = a.staff_id' )
-            ->leftJoin( 'Customer', 'customer', 'customer.wp_user_id = ' . $this->get( 'wp_user_id' ) )
+            ->leftJoin( 'Customer', 'customer', 'customer.wp_user_id = ' . $this->getWpUserId() )
             ->innerJoin( 'CustomerAppointment', 'ca', 'ca.appointment_id = a.id AND ca.customer_id = customer.id' )
             ->leftJoin( 'Service', 's', 's.id = COALESCE(ca.compound_service_id, a.service_id)' )
             ->leftJoin( 'Category', 'c', 'c.id = s.category_id' )
@@ -137,22 +155,6 @@ class Customer extends Lib\Base\Entity
     }
 
     /**
-     * Associate WP user with customer.
-     *
-     * @param int $user_id
-     */
-    public function setWPUser( $user_id = 0 )
-    {
-        if ( $user_id == 0 ) {
-            $user_id = $this->_createWPUser();
-        }
-
-        if ( $user_id ) {
-            $this->set( 'wp_user_id', $user_id );
-        }
-    }
-
-    /**
      * Create new WP user and send email notification.
      *
      * @return int|false
@@ -160,7 +162,8 @@ class Customer extends Lib\Base\Entity
     private function _createWPUser()
     {
         // Generate unique username.
-        $base     = sanitize_user( $this->get( 'full_name' ), true ) != '' ? sanitize_user( $this->get( 'full_name' ), true ) : 'client';
+        $base     = Lib\Config::showFirstLastName() ? sanitize_user( sprintf( '%s %s', $this->getFirstName(), $this->getLastName() ), true ) : sanitize_user( $this->getFullName(), true );
+        $base     = $base != '' ? $base : 'client';
         $username = $base;
         $i        = 1;
         while ( username_exists( $username ) ) {
@@ -170,7 +173,7 @@ class Customer extends Lib\Base\Entity
         // Generate password.
         $password = wp_generate_password( 6, true );
         // Create user.
-        $user_id = wp_create_user( $username, $password, $this->get( 'email' ) );
+        $user_id = wp_create_user( $username, $password, $this->getEmail() );
         if ( ! $user_id instanceof \WP_Error ) {
             // Set the role
             $user = new \WP_User( $user_id );
@@ -185,6 +188,227 @@ class Customer extends Lib\Base\Entity
         return false;
     }
 
+    /**************************************************************************
+     * Entity Fields Getters & Setters                                        *
+     **************************************************************************/
+
+    /**
+     * Gets wp_user_id
+     *
+     * @return int
+     */
+    public function getWpUserId()
+    {
+        return $this->wp_user_id;
+    }
+
+    /**
+     * Associate WP user with customer.
+     *
+     * @param int $wp_user_id
+     * @return $this
+     */
+    public function setWpUserId( $wp_user_id = 0 )
+    {
+        if ( $wp_user_id == 0 ) {
+            $wp_user_id = $this->_createWPUser();
+        }
+
+        if ( $wp_user_id ) {
+            $this->wp_user_id = $wp_user_id;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Gets full_name
+     *
+     * @return string
+     */
+    public function getFullName()
+    {
+        return $this->full_name;
+    }
+
+    /**
+     * Sets full_name
+     *
+     * @param string $full_name
+     * @return $this
+     */
+    public function setFullName( $full_name )
+    {
+        $this->full_name = $full_name;
+
+        return $this;
+    }
+
+    /**
+     * Gets first_name
+     *
+     * @return string
+     */
+    public function getFirstName()
+    {
+        return $this->first_name;
+    }
+
+    /**
+     * Sets first_name
+     *
+     * @param string $first_name
+     * @return $this
+     */
+    public function setFirstName( $first_name )
+    {
+        $this->first_name = $first_name;
+
+        return $this;
+    }
+
+    /**
+     * Gets last_name
+     *
+     * @return string
+     */
+    public function getLastName()
+    {
+        return $this->last_name;
+    }
+
+    /**
+     * Sets last_name
+     *
+     * @param string $last_name
+     * @return $this
+     */
+    public function setLastName( $last_name )
+    {
+        $this->last_name = $last_name;
+
+        return $this;
+    }
+
+    /**
+     * Gets group_id
+     *
+     * @return int
+     */
+    public function getGroupId()
+    {
+        return $this->group_id;
+    }
+
+    /**
+     * Sets group_id
+     *
+     * @param int $group_id
+     * @return $this
+     */
+    public function setGroupId( $group_id )
+    {
+        $this->group_id = $group_id;
+
+        return $this;
+    }
+
+    /**
+     * Gets phone
+     *
+     * @return string
+     */
+    public function getPhone()
+    {
+        return $this->phone;
+    }
+
+    /**
+     * Sets phone
+     *
+     * @param string $phone
+     * @return $this
+     */
+    public function setPhone( $phone )
+    {
+        $this->phone = $phone;
+
+        return $this;
+    }
+
+    /**
+     * Gets email
+     *
+     * @return string
+     */
+    public function getEmail()
+    {
+        return $this->email;
+    }
+
+    /**
+     * Sets email
+     *
+     * @param string $email
+     * @return $this
+     */
+    public function setEmail( $email )
+    {
+        $this->email = $email;
+
+        return $this;
+    }
+
+    /**
+     * Gets notes
+     *
+     * @return string
+     */
+    public function getNotes()
+    {
+        return $this->notes;
+    }
+
+    /**
+     * Sets notes
+     *
+     * @param string $notes
+     * @return $this
+     */
+    public function setNotes( $notes )
+    {
+        $this->notes = $notes;
+
+        return $this;
+    }
+
+    /**
+     * Gets birthday
+     *
+     * @return string
+     */
+    public function getBirthday()
+    {
+        return $this->birthday;
+    }
+
+    /**
+     * Sets birthday
+     *
+     * @param string $birthday
+     * @return $this
+     */
+    public function setBirthday( $birthday )
+    {
+        $this->birthday = $birthday;
+
+        return $this;
+    }
+
+    /**************************************************************************
+     * Overridden Methods                                                     *
+     **************************************************************************/
+
     /**
      * Save entity to database.
      * Fill name, first_name, last_name before save
@@ -193,12 +417,12 @@ class Customer extends Lib\Base\Entity
      */
     public function save()
     {
-        if ( ! get_option( 'bookly_cst_first_last_name' ) || ( $this->get( 'full_name' ) != '' && $this->get( 'first_name' ) == '' && $this->get( 'last_name' ) == '' ) ) {
-            $full_name = explode( ' ', $this->get( 'full_name' ), 2 );
-            $this->set( 'first_name', $full_name[0] );
-            $this->set( 'last_name', isset ( $full_name[1] ) ? trim( $full_name[1] ) : '' );
+        if ( ( ! Lib\Config::showFirstLastName() && $this->getFullName() != '' ) || ( $this->getFullName() != '' && $this->getFirstName() == '' && $this->getLastName() == '' ) ) {
+            $full_name = explode( ' ', $this->getFullName(), 2 );
+            $this->setFirstName( $full_name[0] );
+            $this->setLastName( isset ( $full_name[1] ) ? trim( $full_name[1] ) : '' );
         } else {
-            $this->set( 'full_name', trim( rtrim( $this->get( 'first_name' ) ) . ' ' . ltrim( $this->get( 'last_name' ) ) ) );
+            $this->setFullName( trim( rtrim( $this->getFirstName() ) . ' ' . ltrim( $this->getLastName() ) ) );
         }
 
         return parent::save();

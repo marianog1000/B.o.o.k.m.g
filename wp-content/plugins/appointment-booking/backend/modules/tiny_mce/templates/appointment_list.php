@@ -1,7 +1,5 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
-    $custom_fields = array_filter( json_decode( get_option( 'bookly_custom_fields' ) ), function ( $field ) {
-        return ! in_array( $field->type, array( 'captcha', 'text-content' ) );
-    } );
+    $custom_fields = (array) Bookly\Lib\Proxy\CustomFields::getWhichHaveData();
 ?>
 <div id="bookly-tinymce-appointment-popup" style="display: none">
     <form id="bookly-shortcode-form">
@@ -64,12 +62,14 @@
                 <th colspan="2"><?php _e( 'Custom Fields', 'bookly' ) ?></th>
             </tr>
             <?php foreach ( $custom_fields as $field ) : ?>
-                <tr>
-                    <td class="bookly-cf-col"><?php echo $field->label ?></td>
-                    <td>
-                        <label><input type="checkbox" data-custom_field="<?php echo $field->id ?>" /><?php _e( 'Yes', 'bookly' ) ?></label>
-                    </td>
-                </tr>
+                <?php if ( $field->type != 'file' ) : ?>
+                    <tr>
+                        <td class="bookly-cf-col"><?php echo $field->label ?></td>
+                        <td>
+                            <label><input type="checkbox" data-custom_field="<?php echo $field->id ?>" /><?php _e( 'Yes', 'bookly' ) ?></label>
+                        </td>
+                    </tr>
+                <?php endif ?>
             <?php endforeach ?>
             <tr>
                 <td></td>

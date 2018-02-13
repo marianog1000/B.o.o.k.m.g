@@ -17,6 +17,9 @@ use Bookly\Lib\Base;
  *
  * @method static void renderStaffServiceLabel() Render column header for deposit
  * @see \BooklyDepositPayments\Lib\ProxyProviders\Local::renderStaffServiceLabel()
+ *
+ * @method static void renderStaffCabinetSettings() Render deposit in PopUp for short_code settings
+ * @see \BooklyDepositPayments\Lib\ProxyProviders\Local::renderStaffCabinetSettings()
  */
 abstract class DepositPayments extends Base\ProxyInvoker
 {

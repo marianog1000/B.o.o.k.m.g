@@ -12,10 +12,10 @@ use Bookly\Lib\Base;
  * @method static void cancelAppointment( \Bookly\Lib\Entities\CustomerAppointment $customer_appointment ) Cancel compound appointment
  * @see \BooklyCompoundServices\Lib\ProxyProviders\Local::cancelAppointment()
  *
- * @method static void renderSubServices( array $service, array $service_collection, $sub_services ) Render sub services for compound
+ * @method static void renderSubServices( array $service, array $service_collection ) Render sub services for compound
  * @see \BooklyCompoundServices\Lib\ProxyProviders\Local::renderSubServices()
  */
-class CompoundServices extends Base\ProxyInvoker
+abstract class CompoundServices extends Base\ProxyInvoker
 {
 
 }

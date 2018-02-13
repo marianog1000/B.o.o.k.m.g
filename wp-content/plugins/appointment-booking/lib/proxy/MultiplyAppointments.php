@@ -12,7 +12,7 @@ use Bookly\Lib\Base;
  * @method static void renderAppearance() Render Multiply Appointments in Appearance
  * @see \BooklyMultiplyAppointments\Lib\ProxyProviders\Local::renderAppearance()
  */
-class MultiplyAppointments extends Base\ProxyInvoker
+abstract class MultiplyAppointments extends Base\ProxyInvoker
 {
 
 }

@@ -1,14 +1,23 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+use Bookly\Backend\Modules\Appearance\Components;
+use Bookly\Lib\Utils\DateTime;
+use Bookly\Lib\Proxy;
 /** @var Bookly\Backend\Modules\Appearance\Lib\Helper $editable */
 ?>
 <div class="bookly-form">
     <?php include '_progress_tracker.php' ?>
 
     <div class="bookly-box">
-        <?php $editable::renderText( 'bookly_l10n_info_time_step', $this->render( '_codes', array( 'step' => 3 ), false ) ) ?>
-        <div class="bookly-holder bookly-label-error bookly-bold">
-            <?php $editable::renderText( 'bookly_l10n_step_time_slot_not_available', null, 'bottom', __( 'Visible when the chosen time slot has been already booked', 'bookly' ) ) ?>
-        </div>
+        <?php $editable::renderText( 'bookly_l10n_info_time_step', Components::getInstance()->renderCodes( array( 'step' => 3 ), false ) ) ?>
+    </div>
+    <?php Proxy\WaitingList::renderAppearanceTimeStepInfoText() ?>
+    <div class="bookly-box bookly-label-error" style="padding-bottom:2px">
+        <?php $editable::renderText( 'bookly_l10n_step_time_slot_not_available', null, 'bottom', __( 'Visible when the chosen time slot has been already booked', 'bookly' ) ) ?>
+    </div>
+    <div class="bookly-box bookly-js-time-zone-switcher">
+        <select class="bookly-time-zone-switcher">
+            <?php echo wp_timezone_choice( $tz_string, get_user_locale() ) ?>
+        </select>
     </div>
     <!-- timeslots -->
     <div class="bookly-time-step">
@@ -26,7 +35,7 @@
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
                                 <i class="bookly-hour-icon"><span></span></i>
-                                <?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -34,14 +43,14 @@
                 <div class="bookly-column col2">
                     <button class="bookly-hour ladda-button bookly-last-child">
                         <span class="ladda-label">
-                            <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( 61200 ) ?>
+                            <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( 61200 ) ?>
                         </span>
                     </button>
                     <button class="bookly-day bookly-js-first-child" style="display: <?php echo get_option( 'bookly_app_show_calendar' ) == 1 ? ' none' : 'block' ?>"><?php echo date_i18n( 'D, M d', strtotime( '+1 day', current_time( 'timestamp' ) ) ) ?></button>
                     <?php for ( $i = 28800; $i <= 54000; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>" style="display: <?php echo get_option( 'bookly_app_show_calendar' ) == 1 ? ' none' : 'block' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -50,7 +59,7 @@
                     <?php for ( $i = 57600; $i <= 61200; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -58,7 +67,7 @@
                     <?php for ( $i = 28800; $i <= 50400; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -67,7 +76,7 @@
                     <?php for ( $i = 54000; $i <= 61200; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -75,7 +84,7 @@
                     <?php for ( $i = 28800; $i <= 46800; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -84,7 +93,7 @@
                     <?php for ( $i = 50400; $i <= 61200; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -92,7 +101,7 @@
                     <?php for ( $i = 28800; $i <= 43200; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -101,7 +110,7 @@
                     <?php for ( $i = 46800; $i <= 61200; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -109,7 +118,7 @@
                     <?php for ( $i = 28800; $i <= 39600; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -118,7 +127,7 @@
                     <?php for ( $i = 43200; $i <= 61200; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -126,7 +135,7 @@
                     <?php for ( $i = 28800; $i <= 36000; $i += 3600 ) : ?>
                         <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $i ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $i ) ?>
                             </span>
                         </button>
                     <?php endfor ?>
@@ -145,7 +154,7 @@
                         <?php for ( $j = 28800; $j <= 61200; $j += 3600 ) : ?>
                             <button class="bookly-hour ladda-button<?php if ( mt_rand( 0, 1 ) ) echo get_option( 'bookly_app_show_blocked_timeslots' ) == 1 ? ' booked' : ' no-booked' ?>">
                             <span class="ladda-label">
-                                <i class="bookly-hour-icon"><span></span></i><?php echo \Bookly\Lib\Utils\DateTime::formatTime( $j ) ?>
+                                <i class="bookly-hour-icon"><span></span></i><?php echo DateTime::formatTime( $j ) ?>
                             </span>
                             </button>
                         <?php endfor ?>

@@ -11,8 +11,12 @@ use Bookly\Lib\Base;
  *
  * @method static string preparePrice( string $price, int $staff_id, int $service_id, $start_time )
  * @see \BooklySpecialHours\Lib\ProxyProviders\Local::preparePrice()
+ *
+ * @method static void renderStaffCabinetSettings() Render special hours in PopUp for short_code settings
+ * @see \BooklySpecialHours\Lib\ProxyProviders\Local::renderStaffCabinetSettings()
+ *
  */
-class SpecialHours extends Base\ProxyInvoker
+abstract class SpecialHours extends Base\ProxyInvoker
 {
 
 }

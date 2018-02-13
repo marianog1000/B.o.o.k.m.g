@@ -9,10 +9,19 @@ use Bookly\Lib\Base;
  *
  * @package Bookly\Lib\Proxy
  *
- * @method static void renderServicePackage( array $service, array $service_collection, $sub_services ) Render sub services for packages
+ * @method static void addBooklyMenuItem() Add 'Packages' to Bookly menu
+ * @see \BooklyPackages\Lib\ProxyProviders\Local::addBooklyMenuItem()
+ *
+ * @method static void renderServicePackage( array $service, array $service_collection ) Render sub services for packages
  * @see \BooklyPackages\Lib\ProxyProviders\Local::renderServicePackage()
+ *
+ * @method static void renderPackageScheduleDialog()
+ * @see \BooklyPackages\Lib\ProxyProviders\Local::renderPackageScheduleDialog()
+ *
+ * @method static array prepareDataForAppointmentForm( array $data )
+ * @see \BooklyPackages\Lib\ProxyProviders\Local::prepareDataForAppointmentForm()
  */
-class Packages extends Base\ProxyInvoker
+abstract class Packages extends Base\ProxyInvoker
 {
 
 }

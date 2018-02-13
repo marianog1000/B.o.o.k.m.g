@@ -100,12 +100,32 @@ jQuery(function ($) {
                         });
 
                     $('.bookly-service-checkbox').on('change', function () {
-                        var $this = $(this);
-                        var $inputs = $this.closest('li').find('input:not(:checkbox)');
+                        var $this    = $(this),
+                            $service = $this.closest('li'),
+                            $inputs  = $service.find('input:not(:checkbox)');
+
                         $inputs.attr('disabled', !$this.is(':checked'));
+
+                        // Handle package-service connections
+                        if ($(this).is(':checked') && $service.data('service-type') == 'package') {
+                            $('li[data-service-type="simple"][data-service-id="' + $service.data('sub-service') + '"] .bookly-service-checkbox', $services_form).prop('checked', true).trigger('change');
+                            $('.bookly-js-capacity-min', $service).val($('li[data-service-type="simple"][data-service-id="' + $service.data('sub-service') + '"] .bookly-js-capacity-min', $services_form).val());
+                            $('.bookly-js-capacity-max', $service).val($('li[data-service-type="simple"][data-service-id="' + $service.data('sub-service') + '"] .bookly-js-capacity-max', $services_form).val());
+                        }
+                        if (!$(this).is(':checked') && $service.data('service-type') == 'simple') {
+                            $('li[data-service-type="package"][data-sub-service="' + $service.data('service-id') + '"] .bookly-service-checkbox', $services_form).prop('checked', false).trigger('change');
+                        }
                     });
 
                     $('.bookly-js-capacity').on('keyup change', function () {
+                        var $service = $(this).closest('li');
+                        if ($service.data('service-type') == 'simple') {
+                            if ($(this).hasClass('bookly-js-capacity-min')) {
+                                $('li[data-service-type="package"][data-sub-service="' + $service.data('service-id') + '"] .bookly-js-capacity-min', $services_form).val($(this).val());
+                            } else {
+                                $('li[data-service-type="package"][data-sub-service="' + $service.data('service-id') + '"] .bookly-js-capacity-max', $services_form).val($(this).val());
+                            }
+                        }
                         checkCapacityError($(this).closest('.form-group'));
                     });
                     autoTickCheckboxes();

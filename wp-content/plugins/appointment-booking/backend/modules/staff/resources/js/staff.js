@@ -4,7 +4,8 @@ jQuery(function($) {
         $wp_user_select   = $('#bookly-new-staff-wpuser'),
         $name_input       = $('#bookly-new-staff-fullname'),
         $staff_count      = $('#bookly-staff-count'),
-        $edit_form        = $('#bookly-container-edit-staff');
+        $edit_form        = $('#bookly-container-edit-staff'),
+        $delete_cascade_modal = $('.bookly-js-delete-cascade-confirm');
 
     function saveNewForm() {
         var data = {
@@ -94,7 +95,6 @@ jQuery(function($) {
             $edit_form.html(response.data.html.edit);
             booklyAlert(response.data.alert);
             var $details_container   = $('#bookly-details-container', $edit_form),
-                $loading_indicator   = $('.bookly-loading', $edit_form),
                 $services_container  = $('#bookly-services-container', $edit_form),
                 $schedule_container  = $('#bookly-schedule-container', $edit_form),
                 $holidays_container  = $('#bookly-holidays-container', $edit_form)
@@ -120,23 +120,62 @@ jQuery(function($) {
             // Delete staff member.
             $('#bookly-staff-delete', $edit_form).on('click', function (e) {
                 e.preventDefault();
-                if (confirm(BooklyL10n.are_you_sure)) {
-                    $edit_form.html('<div class="bookly-loading"></div>');
-                    $.post(ajaxurl, {action: 'bookly_delete_staff', id: staff_id, csrf_token: BooklyL10n.csrf_token}, function (response) {
-                        $edit_form.html('');
-                        $wp_user_select.children(':not(:first)').remove();
-                        $.each(response.data.wp_users, function (index, wp_user) {
-                            var $option = $('<option>')
-                                .data('email', wp_user.user_email)
-                                .val(wp_user.ID)
-                                .text(wp_user.display_name);
-                            $wp_user_select.append($option);
-                        });
-                        $('#bookly-staff-' + staff_id).remove();
-                        $staff_count.text($staff_list.children().length);
-                        $staff_list.children(':first').click();
+
+                var ladda = Ladda.create(this),
+                    data = {
+                        action: 'bookly_delete_staff',
+                        id: staff_id, csrf_token:
+                        BooklyL10n.csrf_token
+                    };
+                ladda.start();
+
+                var delete_staff = function (ajaxurl, data) {
+                    $.post(ajaxurl, data, function (response) {
+                        ladda.stop();
+                        if (!response.success) {
+                            switch (response.data.action) {
+                                case 'show_modal':
+                                    $delete_cascade_modal
+                                        .modal('show');
+                                    $('.bookly-js-delete', $delete_cascade_modal).off().on('click', function () {
+                                        $edit_form.html('<div class="bookly-loading"></div>');
+                                        ladda = Ladda.create(this);
+                                        ladda.start();
+                                        delete_staff(ajaxurl, $.extend(data, {force_delete: true}));
+                                        $delete_cascade_modal.modal('hide');
+                                        ladda.stop();
+                                    });
+                                    $('.bookly-js-edit', $delete_cascade_modal).off().on('click', function () {
+                                        ladda = Ladda.create(this);
+                                        ladda.start();
+                                        window.location.href = response.data.filter_url;
+                                    });
+                                    break;
+                                case 'confirm':
+                                    if (confirm(BooklyL10n.are_you_sure)) {
+                                        $edit_form.html('<div class="bookly-loading"></div>');
+                                        delete_staff(ajaxurl, $.extend(data, {force_delete: true}));
+                                    }
+                                    break;
+                            }
+                        } else {
+                            $edit_form.html('');
+                            $wp_user_select.children(':not(:first)').remove();
+                            $.each(response.data.wp_users, function (index, wp_user) {
+                                var $option = $('<option>')
+                                    .data('email', wp_user.user_email)
+                                    .val(wp_user.ID)
+                                    .text(wp_user.display_name);
+                                $wp_user_select.append($option);
+                            });
+                            $('#bookly-staff-' + staff_id).remove();
+                            $staff_count.text($staff_list.children().length);
+                            $staff_list.children(':first').click();
+                        }
                     });
-                }
+                };
+
+                delete_staff(ajaxurl, data);
             });
 
             // Delete staff avatar

@@ -7,6 +7,7 @@ namespace Bookly\Lib;
  */
 class Chain
 {
+    /** @var ChainItem[] */
     private $items = array();
 
     /**

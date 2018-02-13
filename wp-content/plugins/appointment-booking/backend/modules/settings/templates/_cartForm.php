@@ -1,7 +1,7 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly ?>
 <form method="post" action="<?php echo esc_url( add_query_arg( 'tab', 'cart' ) ) ?>">
-    <?php \Bookly\Lib\Utils\Common::optionToggle( 'bookly_cart_enabled', __( 'Cart', 'bookly' ), __( 'If cart is enabled then your clients will be able to book several appointments at once. Please note that WooCommerce integration must be disabled.', 'bookly' ) ) ?>
-    <?php \Bookly\Lib\Proxy\Shared::renderCartSettings() ?>
+    <?php Bookly\Lib\Utils\Common::optionToggle( 'bookly_cart_enabled', __( 'Cart', 'bookly' ), __( 'If cart is enabled then your clients will be able to book several appointments at once. Please note that WooCommerce integration must be disabled.', 'bookly' ) ) ?>
+    <?php Bookly\Lib\Proxy\Shared::renderCartSettings() ?>
     <div class="form-group">
         <label for="bookly_cart_show_columns"><?php _e( 'Columns', 'bookly' ) ?></label><br/>
         <div class="bookly-flags" id="bookly_cart_show_columns">
@@ -26,8 +26,8 @@
         </div>
     </div>
     <div class="panel-footer">
-        <?php \Bookly\Lib\Utils\Common::csrf() ?>
-        <?php \Bookly\Lib\Utils\Common::submitButton() ?>
-        <?php \Bookly\Lib\Utils\Common::resetButton() ?>
+        <?php Bookly\Lib\Utils\Common::csrf() ?>
+        <?php Bookly\Lib\Utils\Common::submitButton() ?>
+        <?php Bookly\Lib\Utils\Common::resetButton() ?>
     </div>
 </form>

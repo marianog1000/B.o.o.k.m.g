@@ -10,8 +10,8 @@ echo $progress_tracker;
     <button class="bookly-add-item bookly-btn ladda-button" data-style="zoom-in" data-spinner-size="40">
         <span class="ladda-label"><?php echo Common::getTranslatedOption( 'bookly_l10n_button_book_more' ) ?></span>
     </button>
-    <div class="bookly-holder bookly-label-error bookly-bold"></div>
 </div>
+<div class="bookly-box bookly-label-error"></div>
 <div class="bookly-cart-step">
     <div class="bookly-cart bookly-box">
         <table>
@@ -34,7 +34,7 @@ echo $progress_tracker;
                         <button class="bookly-round" data-action="drop" title="<?php esc_attr_e( 'Remove', 'bookly' ) ?>" data-style="zoom-in" data-spinner-size="30"><span class="ladda-label"><i class="bookly-icon-sm bookly-icon-drop"></i></span></button>
                     </td>
                 </tr>
-                <?php Proxy\Shared::renderCartItemInfo( $cart_items, $key, $positions, true ) ?>
+                <?php Proxy\Shared::renderCartItemInfo( $userData, $key, $positions, true ) ?>
             <?php endforeach ?>
             </tbody>
             <tbody class="bookly-mobile-version">
@@ -45,7 +45,7 @@ echo $progress_tracker;
                         <td><?php echo $value ?></td>
                     </tr>
                 <?php endforeach ?>
-                <?php Proxy\Shared::renderCartItemInfo( $cart_items, $key, $positions['price'],false ) ?>
+                <?php Proxy\Shared::renderCartItemInfo( $userData, $key, $positions, false ) ?>
                 <tr data-cart-key="<?php echo $key ?>">
                     <th></th>
                     <td class="bookly-js-actions">
@@ -57,18 +57,41 @@ echo $progress_tracker;
             </tbody>
             <?php if ( isset( $positions['price'] ) || ( $deposit['show'] && isset( $positions['deposit'] ) ) ) : ?>
                 <tfoot class="bookly-mobile-version">
-                <tr>
-                    <th><?php _e( 'Total', 'bookly' ) ?>:</th>
-                    <td><strong class="bookly-js-total-price"><?php echo Price::format( $total ) ?></strong></td>
-                </tr>
+                <?php if ( isset ( $positions['price'] ) ) : ?>
+                    <?php if ( $wl_total > 0 ): ?>
+                        <tr class="bookly-cart-total">
+                            <th><?php _e( 'Waiting list appointments', 'bookly' ) ?>:</th>
+                            <td><strong class="bookly-js-total-waiting-list-price"><?php echo Price::format( - $wl_total ) ?></strong></td>
+                        </tr>
+                    <?php endif ?>
+                    <tr class="bookly-cart-total">
+                        <th><?php _e( 'Total', 'bookly' ) ?>:</th>
+                        <td><strong class="bookly-js-total-price"><?php echo Price::format( $total ) ?></strong></td>
+                    </tr>
+                <?php endif ?>
                 <?php if ( $deposit['show'] ) : ?>
-                    <tr>
+                    <tr class="bookly-cart-total">
                         <th><?php _e( 'Deposit', 'bookly' ) ?>:</th>
                         <td><strong class="bookly-js-total-deposit-price"><?php echo Price::format( $deposit['to_pay'] ) ?></strong></td>
                     </tr>
                 <?php endif ?>
                 </tfoot>
                 <tfoot class="bookly-desktop-version">
+                <?php if ( isset ( $positions['price'] ) && $wl_total > 0 ): ?>
+                    <tr class="bookly-cart-total">
+                        <?php foreach ( $columns as $position => $column ) : ?>
+                            <td <?php if ( $position == $positions['price'] ) echo 'class="bookly-rtext"' ?>>
+                                <?php if ( $position == 0 ) : ?>
+                                    <strong><?php _e( 'Waiting list appointments', 'bookly' ) ?>:</strong>
+                                <?php endif ?>
+                                <?php if ( $position == $positions['price'] ) : ?>
+                                    <strong class="bookly-js-total-waiting-list-price"><?php echo Price::format( - $wl_total ) ?></strong>
+                                <?php endif ?>
+                            </td>
+                        <?php endforeach ?>
+                        <td></td>
+                    </tr>
+                <?php endif ?>
                 <tr class="bookly-cart-total">
                     <?php foreach ( $columns as $position => $column ) : ?>
                     <td <?php if ( isset( $positions['price'] ) && $position == $positions['price'] ) echo 'class="bookly-rtext"' ?>>
@@ -91,7 +114,7 @@ echo $progress_tracker;
     </div>
 </div>
 
-<?php $this->render( '_info_block', compact( 'info_message' ) ) ?>
+<?php Proxy\RecurringAppointments::renderInfoMessage( $userData ) ?>
 
 <div class="bookly-box bookly-nav-steps">
     <button class="bookly-back-step bookly-js-back-step bookly-btn ladda-button" data-style="zoom-in" data-spinner-size="40">

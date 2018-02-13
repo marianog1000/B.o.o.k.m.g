@@ -1,8 +1,8 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 use Bookly\Lib\Entities\CustomerAppointment;
-use Bookly\Lib\Utils\Price;
 use Bookly\Lib\Utils\Common;
 use Bookly\Lib\Config;
+use Bookly\Lib\Proxy;
 ?>
 <div id="bookly-customer-details-dialog" class="modal fade" tabindex=-1 role="dialog">
     <div class="modal-dialog">
@@ -25,74 +25,19 @@ use Bookly\Lib\Config;
                             <?php endif ?>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="bookly-edit-number-of-persons"><?php _e( 'Number of persons', 'bookly' ) ?></label>
-                        <select class="bookly-custom-field form-control" id="bookly-edit-number-of-persons"></select>
+                    <div class="form-group" <?php if ( ! Config::groupBookingActive() ) echo ' style="display:none"' ?>>
+                        <label for="bookly-number-of-persons"><?php _e( 'Number of persons', 'bookly' ) ?></label>
+                        <select class="bookly-custom-field form-control" id="bookly-number-of-persons"></select>
                     </div>
-                    <h3 class="bookly-block-head bookly-color-gray">
-                        <?php _e( 'Custom Fields', 'bookly' ) ?>
-                    </h3>
-                    <div id="bookly-js-custom-fields">
-                        <?php foreach ( $custom_fields as $custom_field ) : ?>
-                            <div class="form-group" data-type="<?php echo esc_attr( $custom_field->type )?>" data-id="<?php echo esc_attr( $custom_field->id ) ?>" data-services="<?php echo esc_attr( json_encode( $custom_field->services ) ) ?>">
-                                <label for="custom_field_<?php echo esc_attr( $custom_field->id ) ?>"><?php echo $custom_field->label ?></label>
-                                <div>
-                                    <?php if ( $custom_field->type == 'text-field' ) : ?>
-                                        <input id="custom_field_<?php echo esc_attr( $custom_field->id ) ?>" type="text" class="bookly-custom-field form-control" />
-
-                                    <?php elseif ( $custom_field->type == 'textarea' ) : ?>
-                                        <textarea id="custom_field_<?php echo esc_attr( $custom_field->id ) ?>" rows="3" class="bookly-custom-field form-control"></textarea>
-
-                                    <?php elseif ( $custom_field->type == 'checkboxes' ) : ?>
-                                        <?php foreach ( $custom_field->items as $item ) : ?>
-                                            <div class="checkbox">
-                                                <label>
-                                                    <input class="bookly-custom-field" type="checkbox" value="<?php echo esc_attr( $item ) ?>" />
-                                                    <?php echo $item ?>
-                                                </label>
-                                            </div>
-                                        <?php endforeach ?>
-
-                                    <?php elseif ( $custom_field->type == 'radio-buttons' ) : ?>
-                                        <?php foreach ( $custom_field->items as $item ) : ?>
-                                            <div class="radio">
-                                                <label>
-                                                    <input type="radio" name="<?php echo $custom_field->id ?>" class="bookly-custom-field" value="<?php echo esc_attr( $item ) ?>" />
-                                                    <?php echo $item ?>
-                                                </label>
-                                            </div>
-                                        <?php endforeach ?>
-
-                                    <?php elseif ( $custom_field->type == 'drop-down' ) : ?>
-                                        <select id="custom_field_<?php echo esc_attr( $custom_field->id ) ?>" class="bookly-custom-field form-control">
-                                            <option value=""></option>
-                                            <?php foreach ( $custom_field->items as $item ) : ?>
-                                                <option value="<?php echo esc_attr( $item ) ?>"><?php echo $item ?></option>
-                                            <?php endforeach ?>
-                                        </select>
-                                    <?php endif ?>
-                                </div>
-                            </div>
-                        <?php endforeach ?>
-                    </div>
-
-                    <?php if ( $extras = (array) Bookly\Lib\Proxy\ServiceExtras::findAll() ) : ?>
-                        <h3 class="bookly-block-head bookly-color-gray">
-                            <?php _e( 'Extras', 'bookly' ) ?>
-                        </h3>
-                        <div id="bookly-extras" class="bookly-flexbox">
-                            <?php foreach ( $extras as $extra ) : ?>
-                                <div class="bookly-flex-row service_<?php echo $extra->get( 'service_id' ) ?> bookly-margin-bottom-sm">
-                                    <div class="bookly-flex-cell bookly-padding-bottom-sm" style="width:5em">
-                                        <input class="extras-count form-control" data-id="<?php echo $extra->get( 'id' ) ?>" type="number" min="0" name="extra[<?php echo $extra->get( 'id' ) ?>]" value="0" />
-                                    </div>
-                                    <div class="bookly-flex-cell bookly-padding-bottom-sm bookly-vertical-middle">
-                                        &nbsp;&times; <b><?php echo $extra->getTitle() ?></b> (<?php echo Price::format( $extra->get( 'price' ) ) ?>)
-                                    </div>
-                                </div>
-                            <?php endforeach ?>
+                    <?php if ( Config::showNotes() ): ?>
+                        <div class="form-group">
+                            <label for="bookly-appointment-notes"><?php echo Common::getTranslatedOption( 'bookly_l10n_label_notes' ) ?></label>
+                            <textarea class="bookly-custom-field form-control" id="bookly-appointment-notes"></textarea>
                         </div>
                     <?php endif ?>
+
+                    <?php Proxy\CustomFields::renderCustomerDetails() ?>
+                    <?php Proxy\ServiceExtras::renderCustomerDetails() ?>
                 </div>
                 <div class="modal-footer">
                     <?php Common::customButton( null, 'btn-lg btn-lg btn-success', __( 'Apply', 'bookly' ), array( 'ng-click' => 'saveCustomFields()' ) ) ?>

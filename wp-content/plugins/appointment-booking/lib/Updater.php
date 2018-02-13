@@ -7,18 +7,266 @@ namespace Bookly\Lib;
  */
 class Updater extends Base\Updater
 {
+    function update_14_6()
+    {
+        global $wpdb;
+
+        $meta_id = (int) get_option( 'bookly_processing_wc_order_id' );
+        if ( $meta_id == 0 ) {
+
+            $this->alterTables( array(
+                'ab_customers' => array(
+                    'ALTER TABLE `%s` ADD COLUMN `group_id` INT UNSIGNED DEFAULT NULL AFTER `wp_user_id`',
+                ),
+                'ab_payments' => array(
+                    'ALTER TABLE `%s` CHANGE COLUMN `status` `status` ENUM("pending","completed","rejected") NOT NULL DEFAULT "completed"',
+                    'ALTER TABLE `%s` ADD COLUMN `coupon_id` INT UNSIGNED DEFAULT NULL AFTER `id`',
+                    'ALTER TABLE `%s` ADD COLUMN `gateway_price_correction` DECIMAL(10,2) NULL DEFAULT 0.00 AFTER `paid_type`',
+                ),
+                'ab_services' => array(
+                    'ALTER TABLE `%s` CHANGE COLUMN `visibility` `visibility` ENUM("public","private","group") NOT NULL DEFAULT "public"',
+                    'ALTER TABLE `%s` ADD COLUMN `package_unassigned` TINYINT(1) NOT NULL DEFAULT 0 AFTER `package_size`',
+                ),
+            ) );
+
+            if ( $this->tableExists( 'icl_strings' ) ) {
+                $rows = $wpdb->get_results( sprintf(
+                    'SELECT id, gateway, type FROM `%s`',
+                    $this->getTableName( 'ab_notifications' )
+                ) );
+
+                $strings = array();
+                foreach ( $rows as $row ) {
+                    $name = sprintf( '%s_%s', $row->gateway, $row->type );
+                    $strings[ $name ] = $name . '_' . $row->id;
+                    if ( $row->gateway == 'email' ) {
+                        $strings[ $name . '_subject' ] = $name . '_' . $row->id . '_subject';
+                    }
+                }
+                $this->renameL10nStrings( $strings, false );
+            }
+
+            add_option( 'bookly_app_show_time_zone_switcher', '0' );
+            add_option( 'bookly_paypal_increase', '0' );
+            add_option( 'bookly_paypal_addition', '0' );
+
+            $wc_exists = $this->tableExists( 'woocommerce_order_itemmeta' );
+        } else {
+            $wc_exists = true;
+        }
+
+        if ( $wc_exists ) {
+            $wc_order_meta_table = $this->getTableName( 'woocommerce_order_itemmeta' );
+            $rows = (array) $wpdb->get_results( $wpdb->prepare(
+                'SELECT meta_id, meta_value FROM `' . $wc_order_meta_table . '` WHERE meta_key = \'bookly\' AND meta_id > %d',
+                $meta_id
+            ), ARRAY_A );
+            foreach ( $rows as $row ) {
+                $meta = @unserialize( $row['meta_value'] );
+                if ( isset( $meta['items'] ) ) {
+                    $update = false;
+                    foreach ( $meta['items'] as &$data ) {
+                        if ( is_numeric( $data['slots'][0][2] ) ) {
+                            $data['slots'][0][2] = date( 'Y-m-d H:i:s', $data['slots'][0][2] );
+                            $update = true;
+                        }
+                    }
+                    if ( $update ) {
+                        $wpdb->update( $wc_order_meta_table, array( 'meta_value' => serialize( $meta ) ), array( 'meta_id' => $row['meta_id'] ) );
+                    }
+                }
+                update_option( 'bookly_processing_wc_order_id', $row['meta_id'] );
+            }
+
+            delete_option( 'bookly_processing_wc_order_id' );
+        }
+    }
+
+    function update_14_5()
+    {
+        $bookly_custom_fields = get_option( 'bookly_custom_fields', 'missing' );
+        if ( $bookly_custom_fields != 'missing' ) {
+            update_option( 'bookly_custom_fields_data', $bookly_custom_fields );
+            delete_option( 'bookly_custom_fields' );
+        }
+        $bookly_custom_fields_merge_repetitive = get_option( 'bookly_custom_fields_merge_repetitive', 'missing' );
+        if ( $bookly_custom_fields_merge_repetitive != 'missing' ) {
+            update_option( 'bookly_custom_fields_merge_repeating', $bookly_custom_fields_merge_repetitive );
+            delete_option( 'bookly_custom_fields_merge_repetitive' );
+        }
+    }
+
+    function update_14_4()
+    {
+        global $wpdb;
+
+        if ( get_option( 'bookly_pmt_local' ) != 1 ) {
+            update_option( 'bookly_pmt_local', '0' );
+        }
+
+        add_option( 'bookly_url_cancel_confirm_page_url', home_url() );
+        add_option( 'bookly_ntf_processing_interval', '2' );
+        add_option( 'bookly_app_show_notes', '0' );
+        add_option( 'bookly_reminder_data', array( 'SW1wb3J0YW50ISBJdCBsb29rcyBsaWtlIHlvdSBhcmUgdXNpbmcgYW4gaWxsZWdhbCBjb3B5IG9mIEJvb2tseSDigJMgaXQgbWF5IGNvbnRhaW4gYSBtYWxpY2lvdXMgY29kZSwgYSB0cm9qYW4gb3IgYSBiYWNrZG9vci4=', 'VGhlIGxlZ2FsIGNvcHkgb2YgQm9va2x5IGluY2x1ZGVzIGFsbCBmZWF0dXJlcywgbGlmZXRpbWUgZnJlZSB1cGRhdGVzLCBhbmQgMjQvNyBzdXBwb3J0LiBCeSBidXlpbmcgYSBsZWdhbCBjb3B5IG9mIEJvb2tseSBhdCBhIHNwZWNpYWwgZGlzY291bnRlZCBwcmljZSwgeW91IG1heSBiZW5lZml0IGZyb20gb3VyIHBhcnRuZXLigJlzIGV4Y2x1c2l2ZSBkaXNjb3VudHMh', 'PGEgaHJlZj0iaHR0cHM6Ly93d3cuYm9va2luZy13cC1wbHVnaW4uY29tL2JlY29tZS1sZWdhbC8iIHRhcmdldD0iX2JsYW5rIj5DbGljayBoZXJlIHRvIGxlYXJuIG1vcmUgPj4+PC9hPg' ) );
+        add_option( 'bookly_lic_repeat_time', time() + 7776000 );
+        $this->addL10nOptions( array(
+            'bookly_l10n_label_notes' => __( 'Notes', 'bookly' ),
+        ) );
+
+        $this->renameOptions( array(
+            'bookly_pmt_paypal'               => 'bookly_paypal_enabled',
+            'bookly_pmt_paypal_sandbox'       => 'bookly_paypal_sandbox',
+            'bookly_pmt_paypal_api_password'  => 'bookly_paypal_api_password',
+            'bookly_pmt_paypal_api_signature' => 'bookly_paypal_api_signature',
+            'bookly_pmt_paypal_api_username'  => 'bookly_paypal_api_username',
+            'bookly_pmt_paypal_id'            => 'bookly_paypal_id',
+            'bookly_custom_fields'            => 'bookly_custom_fields_data',
+            'bookly_custom_fields_merge_repetitive' => 'bookly_custom_fields_merge_repeating',
+        ) );
+
+        $this->alterTables( array(
+            'ab_appointments' => array(
+                'ALTER TABLE `%s` ADD COLUMN `custom_service_name` VARCHAR(255) DEFAULT NULL AFTER `service_id`',
+                'ALTER TABLE `%s` ADD COLUMN `custom_service_price` DECIMAL(10,2) DEFAULT NULL AFTER `custom_service_name`',
+                'ALTER TABLE `%s` CHANGE COLUMN `service_id` `service_id` INT UNSIGNED DEFAULT NULL'
+            ),
+            'ab_customer_appointments' => array(
+                'ALTER TABLE `%s` ADD COLUMN `status_changed_at` DATETIME NULL AFTER `status`',
+                'ALTER TABLE `%s` ADD COLUMN `notes` TEXT DEFAULT NULL AFTER `number_of_persons`'
+            ),
+            'ab_notifications' => array(
+                'ALTER TABLE `%s` ADD COLUMN `attach_ics` TINYINT(1) NOT NULL DEFAULT 0 AFTER `to_admin`',
+            ),
+            'ab_services'     => array(
+                'ALTER TABLE `%s` ADD COLUMN `recurrence_enabled` TINYINT(1) NOT NULL DEFAULT 1 AFTER `staff_preference`',
+                'ALTER TABLE `%s` ADD COLUMN `recurrence_frequencies` SET("daily","weekly","biweekly","monthly") NOT NULL DEFAULT "daily,weekly,biweekly,monthly" AFTER `recurrence_enabled`',
+            )
+        ) );
+
+        // Remove `unique_ids_idx` index from `ab_sub_services`.
+        $ref = $wpdb->get_row( sprintf(
+            'SELECT `constraint_name`, `referenced_table_name` FROM `information_schema`.`key_column_usage`
+                WHERE `TABLE_SCHEMA` = SCHEMA() AND `TABLE_NAME` = "%s" AND `COLUMN_NAME` = "service_id" AND `REFERENCED_TABLE_NAME` IS NOT NULL',
+            $this->getTableName( 'ab_sub_services' )
+        ) );
+        if ( $ref ) {
+            $wpdb->query( sprintf( 'ALTER TABLE `%s` DROP FOREIGN KEY `%s`', $this->getTableName( 'ab_sub_services' ), $ref->constraint_name ) );
+            $this->alterTables( array(
+                'ab_sub_services' => array(
+                    'ALTER TABLE `%s` DROP INDEX `unique_ids_idx`'
+                ),
+            ) );
+            $wpdb->query( sprintf(
+                'ALTER TABLE `%s` ADD CONSTRAINT FOREIGN KEY (service_id) REFERENCES %s(id) ON DELETE CASCADE ON UPDATE CASCADE',
+                $this->getTableName( 'ab_sub_services' ),
+                $ref->referenced_table_name
+            ) );
+        }
+
+        foreach ( (array) json_decode( 'bookly_recurring_appointments_frequencies', true ) as $service_id => $frequencies ) {
+            if ( $service = Entities\Service::find( $service_id ) ) {
+                $service
+                    ->setRecurrenceEnabled( $frequencies['enabled'] )
+                    ->setRecurrenceFrequencies( implode( ',', $frequencies['frequencies'] ) )
+                    ->save();
+            }
+        }
+        delete_option( 'bookly_recurring_appointments_frequencies' );
+
+        $notifications = (array) $wpdb->get_results( sprintf( 'SELECT id, settings FROM `%s` WHERE `type` IN (\'%s\',\'%s\') AND `active` = 1',
+            $this->getTableName( 'ab_notifications' ),
+            Entities\Notification::TYPE_APPOINTMENT_START_TIME,
+            Entities\Notification::TYPE_LAST_CUSTOMER_APPOINTMENT
+        ) );
+
+        foreach ( $notifications as $notification ) {
+            $settings = (array) json_decode( $notification->settings, true );
+            if ( $settings[ DataHolders\Notification\Settings::SET_EXISTING_EVENT_WITH_DATE_AND_TIME ]['status'] == '' ) {
+                $settings[ DataHolders\Notification\Settings::SET_EXISTING_EVENT_WITH_DATE_AND_TIME ]['status'] = 'any';
+                $wpdb->update( $this->getTableName( 'ab_notifications' ), array( 'settings' => json_encode( $settings ) ), array( 'id' => $notification->id ) );
+            }
+        }
+    }
+
+    function update_14_3()
+    {
+        $this->renameOptions( array(
+            'bookly_gen_approve_page_url'        => 'bookly_url_approve_page_url',
+            'bookly_gen_approve_denied_page_url' => 'bookly_url_approve_denied_page_url',
+            'bookly_gen_cancel_page_url'         => 'bookly_url_cancel_page_url',
+            'bookly_gen_cancel_denied_page_url'  => 'bookly_url_cancel_denied_page_url',
+            'bookly_gen_final_step_url'          => 'bookly_url_final_step_url',
+        ) );
+
+        add_option( 'bookly_url_reject_page_url', home_url() );
+        add_option( 'bookly_url_reject_denied_page_url', home_url() );
+
+        $this->alterTables( array(
+            'ab_services' => array(
+                'ALTER TABLE `%s` ADD COLUMN `end_time_info` VARCHAR(255) DEFAULT "" AFTER `info`',
+                'ALTER TABLE `%s` ADD COLUMN `start_time_info` VARCHAR(255) DEFAULT "" AFTER `info`',
+                'ALTER TABLE `%s` ADD COLUMN `appointments_limit` INT DEFAULT NULL AFTER `package_size`',
+                'ALTER TABLE `%s` ADD COLUMN `limit_period` ENUM("off","day","week","month","year") NOT NULL DEFAULT "off" AFTER `appointments_limit`'
+            ),
+            'ab_customer_appointments' => array(
+                'ALTER TABLE `%s` ADD COLUMN `package_id` INT UNSIGNED DEFAULT NULL AFTER `id`',
+            ),
+            'ab_notifications' => array(
+                'ALTER TABLE `%s` ADD COLUMN `settings` TEXT NULL',
+                'ALTER TABLE `%s` ADD COLUMN `to_staff` TINYINT(1) NOT NULL DEFAULT 0',
+                'ALTER TABLE `%s` ADD COLUMN `to_customer` TINYINT(1) NOT NULL DEFAULT 0',
+                'ALTER TABLE `%s` CHANGE COLUMN `copy` `to_admin` TINYINT(1) NOT NULL DEFAULT 0',
+            ),
+            'ab_sent_notifications' => array(
+                'ALTER TABLE `%s` ADD COLUMN `notification_id` INT UNSIGNED',
+                'UPDATE `%s` `sn` SET `sn`.`notification_id` = (SELECT `n`.`id` FROM `' . $this->getTableName( 'ab_notifications' ) . '` `n` WHERE `n`.`type` = `sn`.`type` LIMIT 1)',
+                'ALTER TABLE `%s` CHANGE COLUMN `notification_id` INT UNSIGNED NOT NULL',
+                'ALTER TABLE `%s` ADD CONSTRAINT FOREIGN KEY (`notification_id`) REFERENCES `' . $this->getTableName( 'ab_notifications' ) . '` (`id`) ON DELETE CASCADE ON UPDATE CASCADE'
+            ),
+            'ab_sub_services' => array(
+                'ALTER TABLE `%s` ADD COLUMN `type` ENUM("service","spare_time") NOT NULL DEFAULT "service" AFTER `id`',
+                'ALTER TABLE `%s` ADD COLUMN `duration` INT DEFAULT NULL AFTER `sub_service_id`',
+                'ALTER TABLE `%s` CHANGE COLUMN `sub_service_id` `sub_service_id` INT UNSIGNED DEFAULT NULL',
+            ),
+        ) );
+
+        $this->dropTableColumns( $this->getTableName( 'ab_services' ), array( 'sub_services' ) );
+        $this->dropTableColumns( $this->getTableName( 'ab_sent_notifications' ), array( 'type', 'gateway' ) );
+
+        add_option( 'bookly_cst_show_update_details_dialog', '1' );
+        add_option( 'bookly_custom_fields_merge_repetitive', '0' );
+
+        $options = array(
+            'bookly_l10n_info_complete_step_limit_error' => __( 'You are trying to use the service too often. Please contact us to make a booking.', 'bookly' ),
+            'bookly_l10n_info_complete_step_processing'  => __( 'Your payment has been accepted for processing.', 'bookly' ),
+        );
+        $this->addL10nOptions( $options );
+    }
+
     function update_14_1()
     {
         /** @global \wpdb $wpdb */
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\Service::getTableName() . '` CHANGE `type` `type` ENUM("simple","compound","package") NOT NULL DEFAULT "simple"' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\Service::getTableName() . '` ADD `package_life_time` INT DEFAULT NULL AFTER `type`' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\Service::getTableName() . '` ADD `package_size` INT DEFAULT NULL AFTER `package_life_time`' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\Service::getTableName() . '` ADD COLUMN `staff_preference` ENUM("order", "least_occupied", "most_occupied", "least_expensive", "most_expensive") NOT NULL DEFAULT "most_expensive" AFTER `package_size`' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE `type` `type` ENUM("simple","compound","package") NOT NULL DEFAULT "simple"',
+            $this->getTableName( 'ab_services' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD `package_life_time` INT DEFAULT NULL AFTER `type`',
+            $this->getTableName( 'ab_services' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD `package_size` INT DEFAULT NULL AFTER `package_life_time`',
+            $this->getTableName( 'ab_services' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `staff_preference` ENUM("order","least_occupied","most_occupied","least_expensive","most_expensive") NOT NULL DEFAULT "most_expensive" AFTER `package_size`',
+            $this->getTableName( 'ab_services' )
+        ) );
 
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\SubService::getTableName() . '` (
+            'CREATE TABLE IF NOT EXISTS `' . $this->getTableName( 'ab_sub_services' ) . '` (
                 `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `service_id`        INT UNSIGNED NOT NULL,
                 `sub_service_id`    INT UNSIGNED NOT NULL,
@@ -26,12 +274,12 @@ class Updater extends Base\Updater
                 UNIQUE KEY unique_ids_idx (service_id, sub_service_id),
                 CONSTRAINT
                     FOREIGN KEY (service_id)
-                    REFERENCES ' . Entities\Service::getTableName() . '(id)
+                    REFERENCES ' . $this->getTableName( 'ab_services' ) . '(id)
                     ON DELETE CASCADE
                     ON UPDATE CASCADE,
                 CONSTRAINT
                     FOREIGN KEY (sub_service_id)
-                    REFERENCES ' . Entities\Service::getTableName() . '(id)
+                    REFERENCES ' . $this->getTableName( 'ab_services' ) . '(id)
                     ON DELETE CASCADE
                     ON UPDATE CASCADE
             ) ENGINE = INNODB
@@ -40,7 +288,7 @@ class Updater extends Base\Updater
         );
 
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Message::getTableName() . '` (
+            'CREATE TABLE IF NOT EXISTS `' . $this->getTableName( 'ab_messages' ) . '` (
                 `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `message_id` INT UNSIGNED NOT NULL,
                 `type`       VARCHAR(255) NOT NULL,
@@ -54,19 +302,19 @@ class Updater extends Base\Updater
         );
 
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\StaffPreferenceOrder::getTableName() . '` (
+            'CREATE TABLE IF NOT EXISTS `' . $this->getTableName( 'ab_staff_preference_orders' ) . '` (
                 `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `service_id`  INT UNSIGNED NOT NULL,
                 `staff_id`    INT UNSIGNED NOT NULL,
                 `position`    INT NOT NULL DEFAULT 9999,
                 CONSTRAINT
                     FOREIGN KEY (service_id)
-                    REFERENCES ' . Entities\Service::getTableName() . '(id)
+                    REFERENCES ' . $this->getTableName( 'ab_services' ) . '(id)
                     ON DELETE CASCADE
                     ON UPDATE CASCADE,
                 CONSTRAINT
                     FOREIGN KEY (staff_id)
-                    REFERENCES ' . Entities\Staff::getTableName() . '(id)
+                    REFERENCES ' . $this->getTableName( 'ab_staff' ) . '(id)
                     ON DELETE CASCADE
                     ON UPDATE CASCADE
             ) ENGINE = INNODB
@@ -74,9 +322,17 @@ class Updater extends Base\Updater
             COLLATE = utf8_general_ci'
         );
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\Customer::getTableName() . '` CHANGE COLUMN `name` `full_name` VARCHAR(255) NOT NULL DEFAULT ""' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\Customer::getTableName() . '` ADD COLUMN `first_name` VARCHAR(255) NOT NULL DEFAULT "" AFTER `full_name`, ADD COLUMN `last_name` VARCHAR(255) NOT NULL DEFAULT "" AFTER `first_name`' );
-        add_option( 'bookly_cst_first_last_name',       '0' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `name` `full_name` VARCHAR(255) NOT NULL DEFAULT ""',
+            $this->getTableName( 'ab_customers' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s`
+                ADD COLUMN `first_name` VARCHAR(255) NOT NULL DEFAULT "" AFTER `full_name`,
+                ADD COLUMN `last_name` VARCHAR(255) NOT NULL DEFAULT "" AFTER `first_name`',
+            $this->getTableName( 'ab_customers' )
+        ) );
+        add_option( 'bookly_cst_first_last_name', '0' );
 
         $options = array(
             'bookly_l10n_label_first_name'    => __( 'First name', 'bookly' ),
@@ -84,35 +340,49 @@ class Updater extends Base\Updater
             'bookly_l10n_required_first_name' => __( 'Please tell us your first name', 'bookly' ),
             'bookly_l10n_required_last_name'  => __( 'Please tell us your last name', 'bookly' ),
         );
-        $this->register_l10n_options( $options );
+        $this->addL10nOptions( $options );
 
         // Update first and last name fields from full name.
-        foreach ( Entities\Customer::query()->find() as $customer ) {
-            $customer->save();
-        }
+        $wpdb->query( sprintf(
+            'UPDATE `%s` SET `first_name` = SUBSTRING_INDEX(`full_name`, " ", 1), `last_name` = TRIM(SUBSTR(`full_name`, LOCATE(" ", `full_name`)))',
+            $this->getTableName( 'ab_customers' )
+        ) );
 
-        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD `staff_any` TINYINT(1) NOT NULL DEFAULT 0 AFTER `staff_id`', Entities\Appointment::getTableName() ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD `staff_any` TINYINT(1) NOT NULL DEFAULT 0 AFTER `staff_id`',
+            $this->getTableName( 'ab_appointments' )
+        ) );
 
         // Move location from CustomerAppointment to Appointment.
-        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD `location_id` INT UNSIGNED DEFAULT NULL AFTER `series_id`', Entities\Appointment::getTableName() ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD `location_id` INT UNSIGNED DEFAULT NULL AFTER `series_id`',
+            $this->getTableName( 'ab_appointments' )
+        ) );
         $wpdb->query( sprintf(
             'UPDATE `%s` `a` SET `a`.`location_id` = (SELECT `ca`.`location_id` FROM `%s` `ca` WHERE `ca`.`appointment_id` = `a`.`id` AND `ca`.`location_id` IS NOT NULL LIMIT 1)',
-            Entities\Appointment::getTableName(),
-            Entities\CustomerAppointment::getTableName()
+            $this->getTableName( 'ab_appointments' ),
+            $this->getTableName( 'ab_customer_appointments' )
         ) );
         $ref = $wpdb->get_row( sprintf(
             'SELECT `constraint_name`, `referenced_table_name` FROM `information_schema`.`key_column_usage`
                 WHERE `TABLE_SCHEMA` = SCHEMA() AND `TABLE_NAME` = "%s" AND `COLUMN_NAME` = "location_id"',
-            Entities\CustomerAppointment::getTableName()
+            $this->getTableName( 'ab_customer_appointments' )
         ) );
         if ( $ref ) {
-            $wpdb->query( sprintf( 'ALTER TABLE `%s` DROP FOREIGN KEY `%s`', Entities\CustomerAppointment::getTableName(), $ref->constraint_name ) );
-            $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD CONSTRAINT FOREIGN KEY (location_id) REFERENCES %s(id) ON DELETE SET NULL ON UPDATE CASCADE', Entities\Appointment::getTableName(), $ref->referenced_table_name ) );
+            $wpdb->query( sprintf( 'ALTER TABLE `%s` DROP FOREIGN KEY `%s`', $this->getTableName( 'ab_customer_appointments' ), $ref->constraint_name ) );
+            $wpdb->query( sprintf(
+                'ALTER TABLE `%s` ADD CONSTRAINT FOREIGN KEY (location_id) REFERENCES %s(id) ON DELETE SET NULL ON UPDATE CASCADE',
+                $this->getTableName( 'ab_appointments' ),
+                $ref->referenced_table_name
+            ) );
         }
-        $wpdb->query( sprintf( 'ALTER TABLE `%s` DROP COLUMN `location_id`', Entities\CustomerAppointment::getTableName() ) );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` DROP COLUMN `location_id`', $this->getTableName( 'ab_customer_appointments' ) ) );
 
         // Add 'waitlisted' status.
-        $wpdb->query( 'ALTER TABLE `' . Entities\CustomerAppointment::getTableName() . '` CHANGE `status` `status` ENUM("pending","approved","cancelled","rejected","waitlisted") NOT NULL DEFAULT "approved"' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE `status` `status` ENUM("pending","approved","cancelled","rejected","waitlisted") NOT NULL DEFAULT "approved"',
+            $this->getTableName( 'ab_customer_appointments' )
+        ) );
 
         // Add new options.
         add_option( 'bookly_gen_approve_denied_page_url', get_option( 'bookly_gen_approve_page_url' ) );
@@ -124,7 +394,7 @@ class Updater extends Base\Updater
         global $wpdb;
 
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Stat::getTableName() . '` (
+            'CREATE TABLE IF NOT EXISTS `' . $this->getTableName( 'ab_stats' ) . '` (
                 `id`        INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `name`      VARCHAR(255) NOT NULL,
                 `value`     TEXT,
@@ -136,10 +406,16 @@ class Updater extends Base\Updater
 
         add_option( 'bookly_app_show_login_button', '0' );
         add_option( 'bookly_cst_remember_in_cookie', '0' );
-        $this->register_l10n_options( array( 'bookly_l10n_step_details_button_login' => __( 'Log In' ) ) );
+        $this->addL10nOptions( array( 'bookly_l10n_step_details_button_login' => __( 'Log In' ) ) );
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\Payment::getTableName() . '` ADD COLUMN `paid_type` ENUM("in_full","deposit") NOT NULL DEFAULT "in_full" AFTER `paid`' );
-        $wpdb->query( 'UPDATE `' . Entities\Payment::getTableName() . '` SET `paid_type` = (CASE WHEN `paid` = `total` THEN "in_full" ELSE "deposit" END)' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `paid_type` ENUM("in_full","deposit") NOT NULL DEFAULT "in_full" AFTER `paid`',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf(
+            'UPDATE `%s` SET `paid_type` = (CASE WHEN `paid` = `total` THEN "in_full" ELSE "deposit" END)',
+            $this->getTableName( 'ab_payments' )
+        ) );
 
         // Set price format.
         $currencies = Utils\Price::getCurrencies();
@@ -147,76 +423,46 @@ class Updater extends Base\Updater
         add_option( 'bookly_pmt_price_format', $format );
 
         // Time zone.
-        $wpdb->query( 'ALTER TABLE `' . Entities\CustomerAppointment::getTableName() . '` ADD `time_zone` VARCHAR(255) AFTER `token`' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD `time_zone` VARCHAR(255) AFTER `token`',
+            $this->getTableName( 'ab_customer_appointments' )
+        ) );
     }
 
     function update_13_4()
     {
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\CustomerAppointment::getTableName() . '` ADD `created_from` ENUM("frontend","backend") NOT NULL DEFAULT "frontend" AFTER `compound_token`, ADD `created` DATETIME NOT NULL DEFAULT "0000-00-00 00:00:00" AFTER `created_from`' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s`
+                ADD `created_from` ENUM("frontend","backend") NOT NULL DEFAULT "frontend" AFTER `compound_token`,
+                ADD `created` DATETIME NOT NULL DEFAULT "0000-00-00 00:00:00" AFTER `created_from`',
+            $this->getTableName( 'ab_customer_appointments' )
+        ) );
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\Service::getTableName() . '` CHANGE `capacity` `capacity_max` INT NOT NULL DEFAULT 1' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\Service::getTableName() . '` ADD `capacity_min` INT NOT NULL DEFAULT 1 AFTER `color`;' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\StaffService::getTableName() . '` CHANGE `capacity` `capacity_max` INT NOT NULL DEFAULT 1' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\StaffService::getTableName() . '` ADD `capacity_min` INT NOT NULL DEFAULT 1 AFTER `deposit`;' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` CHANGE `capacity` `capacity_max` INT NOT NULL DEFAULT 1', $this->getTableName( 'ab_services' ) ) );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD `capacity_min` INT NOT NULL DEFAULT 1 AFTER `color`', $this->getTableName( 'ab_services' ) ) );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` CHANGE `capacity` `capacity_max` INT NOT NULL DEFAULT 1', $this->getTableName( 'ab_staff_services' ) ) );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD `capacity_min` INT NOT NULL DEFAULT 1 AFTER `deposit`', $this->getTableName( 'ab_staff_services' ) ) );
 
         add_option( 'bookly_app_service_name_with_duration', '0' );
 
-        $notification = Entities\Notification::query()
-            ->select( 'subject, message, gateway' )
-            ->where( 'type', 'client_reminder' )
-            ->indexBy( 'gateway' )
-            ->fetchArray();
+        $items = $wpdb->get_results( sprintf(
+            'SELECT `subject`, `message`, `gateway` FROM `%s` WHERE `type` = "client_reminder"',
+            $this->getTableName( 'ab_notifications' )
+        ) );
 
-        $notifications = array(
-            array(
-                'gateway' => 'email',
-                'type'    => 'client_reminder_1st',
-                'subject' => $notification['email']['subject'],
-                'message' => $notification['email']['message'],
-                'active'  => 0,
-            ),
-            array(
-                'gateway' => 'email',
-                'type'    => 'client_reminder_2nd',
-                'subject' => $notification['email']['subject'],
-                'message' => $notification['email']['message'],
-                'active'  => 0,
-            ),
-            array(
-                'gateway' => 'email',
-                'type'    => 'client_reminder_3rd',
-                'subject' => $notification['email']['subject'],
-                'message' => $notification['email']['message'],
-                'active'  => 0,
-            ),
-
-            array(
-                'gateway' => 'sms',
-                'type'    => 'client_reminder_1st',
-                'subject' => '',
-                'message' => $notification['sms']['message'],
-                'active'  => 0,
-            ),
-            array(
-                'gateway' => 'sms',
-                'type'    => 'client_reminder_2nd',
-                'subject' => '',
-                'message' => $notification['sms']['message'],
-                'active'  => 0,
-            ),
-            array(
-                'gateway' => 'sms',
-                'type'    => 'client_reminder_3rd',
-                'subject' => '',
-                'message' => $notification['sms']['message'],
-                'active'  => 0,
-            ),
-        );
-        foreach ( $notifications as $data ) {
-            $notification = new Entities\Notification( $data );
-            $notification->save();
+        foreach ( $items as $item ) {
+            $types = array( 'client_reminder_1st', 'client_reminder_2nd', 'client_reminder_3rd' );
+            foreach ( $types as $type ) {
+                $wpdb->insert( $this->getTableName( 'ab_notifications' ), array(
+                    'gateway' => $item->gateway,
+                    'type'    => $type,
+                    'subject' => $item->subject,
+                    'message' => $item->message,
+                    'active'  => 0,
+                ) );
+            }
         }
 
         $times = get_option( 'bookly_cron_reminder_times' );
@@ -235,10 +481,10 @@ class Updater extends Base\Updater
             'bookly_l10n_step_time_slot_not_available' => __( 'The selected time is not available anymore. Please, choose another time slot.', 'bookly' ),
             'bookly_l10n_step_cart_slot_not_available' => __( 'The highlighted time is not available anymore. Please, choose another time slot.', 'bookly' ),
         );
-        $this->register_l10n_options( $options );
+        $this->addL10nOptions( $options );
 
         // Drop stats tables.
-        $this->drop( array( $wpdb->prefix . 'ab_stats_forms', $wpdb->prefix . 'ab_stats_steps' ) );
+        $this->drop( array( $this->getTableName( 'ab_stats_forms' ), $this->getTableName( 'ab_stats_steps' ) ) );
 
         add_option( 'bookly_admin_preferred_language', '' );
     }
@@ -251,11 +497,11 @@ class Updater extends Base\Updater
         // Rename and add new appearance options.
         $info_coupon       = get_option( 'bookly_l10n_info_coupon' );
         $info_payment_step = get_option( 'bookly_l10n_info_payment_step' );
-        $this->rename_l10n_strings( array(
+        $this->renameL10nStrings( array(
             'bookly_l10n_info_coupon'       => 'bookly_l10n_info_coupon_single_app',
             'bookly_l10n_info_payment_step' => 'bookly_l10n_info_payment_step_single_app',
         ) );
-        $this->register_l10n_options( array(
+        $this->addL10nOptions( array(
             'bookly_l10n_info_coupon_several_apps'       => $info_coupon,
             'bookly_l10n_info_payment_step_several_apps' => $info_payment_step,
         ) );
@@ -264,14 +510,14 @@ class Updater extends Base\Updater
     function update_13_2()
     {
         $next = get_option( 'bookly_l10n_button_next' );
-        $this->rename_options( array( 'bookly_l10n_button_next' => 'bookly_l10n_step_service_button_next' ) );
+        $this->renameOptions( array( 'bookly_l10n_button_next' => 'bookly_l10n_step_service_button_next' ) );
         $options = array(
             'bookly_l10n_step_service_mobile_button_next' => $next,
             'bookly_l10n_step_cart_button_next'           => $next,
             'bookly_l10n_step_details_button_next'        => $next,
             'bookly_l10n_step_payment_button_next'        => $next,
         );
-        $this->register_l10n_options( $options );
+        $this->addL10nOptions( $options );
     }
 
     function update_13_1()
@@ -286,7 +532,7 @@ class Updater extends Base\Updater
         $times['client_birthday_greeting'] = 9;
         update_option( 'bookly_cron_reminder_times', $times );
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\Customer::getTableName() . '` ADD COLUMN `birthday` DATE AFTER `notes`' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `birthday` DATE AFTER `notes`', $this->getTableName( 'ab_customers' ) ) );
         $notifications = array(
             array(
                 'gateway' => 'email',
@@ -304,16 +550,18 @@ class Updater extends Base\Updater
             ),
         );
         foreach ( $notifications as $data ) {
-            $notification = new Entities\Notification( $data );
-            $notification->save();
+            $wpdb->insert( $this->getTableName( 'ab_notifications' ), $data );
         }
 
-        $sn_table = Entities\SentNotification::getTableName();
-        $wpdb->query( "ALTER TABLE `$sn_table` ADD COLUMN `ref_id` INT UNSIGNED AFTER `id`, ADD INDEX `ref_id_idx` (`ref_id`)" );
-        $wpdb->query( "UPDATE `$sn_table` SET `ref_id` = COALESCE(`customer_appointment_id`, `staff_id`)" );
+        $sn_table = $this->getTableName( 'ab_sent_notifications' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `ref_id` INT UNSIGNED AFTER `id`, ADD INDEX `ref_id_idx` (`ref_id`)', $sn_table ) );
+        $wpdb->query( sprintf( 'UPDATE `%s` SET `ref_id` = COALESCE(`customer_appointment_id`, `staff_id`)', $sn_table ) );
         $this->dropTableColumns( $sn_table, array( 'customer_appointment_id', 'staff_id' ) );
-        $wpdb->query( 'ALTER TABLE `' . Entities\CustomerAppointment::getTableName() . '` CHANGE COLUMN `status` `status` ENUM(\'pending\',\'approved\',\'cancelled\',\'rejected\') NOT NULL DEFAULT \'approved\' AFTER `custom_fields`' );
-        $this->dropTableColumns( Entities\Service::getTableName(), array( 'start_time', 'end_time' ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `status` `status` ENUM("pending","approved","cancelled","rejected") NOT NULL DEFAULT "approved" AFTER `custom_fields`',
+            $this->getTableName( 'ab_customer_appointments' )
+        ) );
+        $this->dropTableColumns( $this->getTableName( 'ab_services' ), array( 'start_time', 'end_time' ) );
     }
 
     function update_13_0()
@@ -344,17 +592,26 @@ class Updater extends Base\Updater
             'bookly_pmt_authorizenet_sandbox'         => 'bookly_pmt_authorize_net_sandbox',
             'bookly_pmt_pay_locally'                  => 'bookly_pmt_local',
         );
-        $this->rename_options( $options );
+        $this->renameOptions( $options );
 
         if ( get_option( 'bookly_email_content_type' ) == 'plain' ) {
             update_option( 'bookly_email_content_type', 'text' );
         }
 
         // Authorize.Net => authorize_net.
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorizeNet','authorize_net','stripe','2checkout','payu_latam','payson','mollie','woocommerce') NOT NULL DEFAULT 'local'" );
-        $wpdb->query( 'UPDATE ' . Entities\Payment::getTableName() . " SET `type` = 'authorize_net' WHERE `type` = 'authorizeNet'" );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorize_net','stripe','2checkout','payu_latam','payson','mollie','woocommerce') NOT NULL DEFAULT 'local'" );
-        $this->dropTableColumns( Entities\Payment::getTableName(), array( 'transaction_id', 'token' ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorizeNet","authorize_net","stripe","2checkout","payu_latam","payson","mollie","woocommerce") NOT NULL DEFAULT "local"',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf(
+            'UPDATE `%s` SET `type` = "authorize_net" WHERE `type` = "authorizeNet"',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorize_net","stripe","2checkout","payu_latam","payson","mollie","woocommerce") NOT NULL DEFAULT "local"',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $this->dropTableColumns( $this->getTableName( 'ab_payments' ), array( 'transaction_id', 'token' ) );
 
         $notifications = array(
             array(
@@ -388,13 +645,12 @@ class Updater extends Base\Updater
             ),
         );
         foreach ( $notifications as $data ) {
-            $notification = new Entities\Notification( $data );
-            $notification->save();
+            $wpdb->insert( $this->getTableName( 'ab_notifications' ), $data );
         }
 
-        $this->dropTableColumns( Entities\CustomerAppointment::getTableName(), array( 'series' ) );
+        $this->dropTableColumns( $this->getTableName( 'ab_customer_appointments' ), array( 'series' ) );
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Series::getTableName() . '` (
+            'CREATE TABLE IF NOT EXISTS `' . $this->getTableName( 'ab_series' ) . '` (
                 `id`     INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `repeat` VARCHAR(255),
                 `token`  VARCHAR(255) NOT NULL
@@ -402,8 +658,12 @@ class Updater extends Base\Updater
             DEFAULT CHARACTER SET = utf8
             COLLATE = utf8_general_ci'
         );
-        $wpdb->query( 'ALTER TABLE `' . Entities\Appointment::getTableName() . '` ADD COLUMN `series_id` INT UNSIGNED AFTER `id`' );
-        $wpdb->query( 'ALTER TABLE `' . Entities\Appointment::getTableName() . '` ADD CONSTRAINT FOREIGN KEY (series_id) REFERENCES ' . Entities\Series::getTableName() . '(id) ON DELETE CASCADE ON UPDATE CASCADE' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `series_id` INT UNSIGNED AFTER `id`', $this->getTableName( 'ab_appointments' ) ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD CONSTRAINT FOREIGN KEY (series_id) REFERENCES %s(id) ON DELETE CASCADE ON UPDATE CASCADE',
+            $this->getTableName( 'ab_appointments' ),
+            $this->getTableName( 'ab_series' )
+        ) );
     }
 
     function update_12_1()
@@ -419,24 +679,24 @@ class Updater extends Base\Updater
         );
         foreach ( $options as $option_name => $option_value ) {
             if ( get_option( $option_name ) == '' ) {
-                $this->register_l10n_options( array( array( $option_name => $option_value ) ) );
+                $this->addL10nOptions( array( array( $option_name => $option_value ) ) );
             }
         }
-        $wpdb->query( 'ALTER TABLE `'. Entities\CustomerAppointment::getTableName() . '` ADD COLUMN `series` VARCHAR(255) NULL DEFAULT NULL' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `series` VARCHAR(255) NULL DEFAULT NULL', $this->getTableName( 'ab_customer_appointments' ) ) );
     }
 
     function update_12_0()
     {
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\Staff::getTableName() . '` CHANGE COLUMN `google_data` `google_data` TEXT' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` CHANGE COLUMN `google_data` `google_data` TEXT', $this->getTableName( 'ab_staff' ) ) );
     }
 
     function update_11_7()
     {
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE `'. Entities\Service::getTableName() . '` ADD COLUMN `start_time` TIME NULL, ADD COLUMN `end_time` TIME NULL' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `start_time` TIME NULL, ADD COLUMN `end_time` TIME NULL', $this->getTableName( 'ab_services' ) ) );
 
         $options = array(
             'ab_2checkout_api_secret_word'         => 'bookly_pmt_2checkout_api_secret_word',
@@ -543,7 +803,7 @@ class Updater extends Base\Updater
             'bookly_payment_payulatam'             => 'bookly_pmt_payu_latam',
             'bookly_payment_stripe'                => 'bookly_pmt_stripe',
         );
-        $this->rename_options( $options );
+        $this->renameOptions( $options );
         $appearance = array(
             'ab_appearance_text_button_apply'      => 'bookly_l10n_button_apply',
             'ab_appearance_text_button_back'       => 'bookly_l10n_button_back',
@@ -592,15 +852,24 @@ class Updater extends Base\Updater
             'ab_woocommerce_cart_info_name'        => 'bookly_l10n_wc_cart_info_name',
             'ab_woocommerce_cart_info_value'       => 'bookly_l10n_wc_cart_info_value',
         );
-        $this->rename_l10n_strings( $appearance );
+        $this->renameL10nStrings( $appearance );
         update_option( 'bookly_pmt_paypal_sandbox', ( get_option( 'bookly_pmt_paypal_sandbox' ) == '.sandbox' ) ? '1' : '0' );
         foreach ( get_users( array( 'role' => 'administrator' ) ) as $admin ) {
             add_user_meta( $admin->ID, 'bookly_dismiss_admin_notice', get_user_meta( $admin->ID, 'ab_dismiss_admin_notice' ) );
             delete_user_meta( $admin->ID, 'ab_dismiss_admin_notice' );
         }
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorizeNet','stripe','2checkout','payulatam','payson','mollie','woocommerce','payu_latam') NOT NULL DEFAULT 'local'" );
-        $wpdb->query( 'UPDATE ' . Entities\Payment::getTableName() . " SET `type` = 'payu_latam' WHERE `type` = 'payulatam'" );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorizeNet','stripe','2checkout','payu_latam','payson','mollie','woocommerce') NOT NULL DEFAULT 'local'" );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorizeNet","stripe","2checkout","payulatam","payson","mollie","woocommerce","payu_latam") NOT NULL DEFAULT "local"',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf(
+            'UPDATE `%s` SET `type` = "payu_latam" WHERE `type` = "payulatam"',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorizeNet","stripe","2checkout","payu_latam","payson","mollie","woocommerce") NOT NULL DEFAULT "local"',
+            $this->getTableName( 'ab_payments' )
+        ) );
         add_option( 'bookly_gen_service_duration_as_slot_length', '0' );
         add_option( 'bookly_gen_show_subscribe_notice', '1' );
     }
@@ -618,7 +887,7 @@ class Updater extends Base\Updater
             'ab_payulatam'         => 'bookly_payment_payulatam',
             'ab_stripe'            => 'bookly_payment_stripe',
         );
-        $this->rename_options( $options );
+        $this->renameOptions( $options );
     }
 
     function update_11_4()
@@ -629,8 +898,11 @@ class Updater extends Base\Updater
             'ab_sms_notify_week_summary'      => 'ab_sms_notify_weekly_summary',
             'ab_sms_notify_week_summary_sent' => 'ab_sms_notify_weekly_summary_sent',
         );
-        $this->rename_options( $options );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorizeNet','stripe','2checkout','payulatam','payson','mollie','woocommerce') NOT NULL DEFAULT 'local'" );
+        $this->renameOptions( $options );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorizeNet","stripe","2checkout","payulatam","payson","mollie","woocommerce") NOT NULL DEFAULT "local"',
+             $this->getTableName( 'ab_payments' )
+        ) );
     }
 
     function update_11_1()
@@ -650,8 +922,11 @@ class Updater extends Base\Updater
     {
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\Payment::getTableName(). '` ADD COLUMN paid DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER total' );
-        $wpdb->query( 'UPDATE `' . Entities\Payment::getTableName(). '` SET paid = total' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `paid` DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER `total`',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf( 'UPDATE `%s` SET `paid` = `total`', $this->getTableName( 'ab_payments' ) ) );
 
         $option = get_option( 'ab_cart_show_columns' );
         $option['deposit'] = array( 'show' => 1 );
@@ -663,20 +938,23 @@ class Updater extends Base\Updater
         global $wpdb;
 
         add_option( 'ab_appearance_staff_name_with_price', (int) ! Config::paymentStepDisabled() );
-        $wpdb->query( 'ALTER TABLE `' . Entities\CustomerAppointment::getTableName(). '` ADD COLUMN `location_id` INT UNSIGNED NULL DEFAULT NULL AFTER `appointment_id`' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `location_id` INT UNSIGNED NULL DEFAULT NULL AFTER `appointment_id`',
+            $this->getTableName( 'ab_customer_appointments' )
+        ) );
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\CouponService::getTableName() . '` (
+            'CREATE TABLE IF NOT EXISTS `' . $this->getTableName( 'ab_coupon_services' ) . '` (
                 `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `coupon_id`   INT UNSIGNED NOT NULL,
                 `service_id`  INT UNSIGNED NOT NULL,
                 CONSTRAINT
                     FOREIGN KEY (coupon_id)
-                    REFERENCES  ' . Entities\Coupon::getTableName() . '(id)
+                    REFERENCES  ' . $this->getTableName( 'ab_coupons' ) . '(id)
                     ON DELETE   CASCADE
                     ON UPDATE   CASCADE,
                 CONSTRAINT
                     FOREIGN KEY (service_id)
-                    REFERENCES  ' . Entities\Service::getTableName() . '(id)
+                    REFERENCES  ' . $this->getTableName( 'ab_services' ) . '(id)
                     ON DELETE   CASCADE
                     ON UPDATE   CASCADE
             ) ENGINE = INNODB
@@ -684,14 +962,17 @@ class Updater extends Base\Updater
             COLLATE = utf8_general_ci'
         );
 
-        $coupon_ids = array_keys( Entities\Coupon::query()->select( 'id' )->indexBy( 'id' )->fetchArray() );
-        if ( ! empty( $coupon_ids ) ) {
-            $service_ids = array_keys( Entities\Service::query()->select( 'id' )->indexBy( 'id' )->fetchArray() );
-            if ( ! empty( $service_ids ) ) {
-                foreach ( $coupon_ids as $coupon_id ) {
-                    foreach ( $service_ids as $service_id ) {
-                        $coupon_service = new Entities\CouponService();
-                        $coupon_service->set( 'coupon_id', $coupon_id )->set( 'service_id', $service_id )->save();
+        $coupons = $wpdb->get_results( sprintf( 'SELECT `id` FROM `%s`', $this->getTableName( 'ab_coupons' ) ) );
+        if ( ! empty ( $coupons ) ) {
+            $services = $wpdb->get_results( sprintf( 'SELECT `id` FROM `%s`', $this->getTableName( 'ab_services' ) ) );
+            if ( ! empty ( $services ) ) {
+                foreach ( $coupons as $coupon ) {
+                    foreach ( $services as $service ) {
+                        $wpdb->insert(
+                            $this->getTableName( 'ab_coupon_services' ),
+                            array( 'coupon_id' => $coupon->id, 'service_id' => $service->id ),
+                            '%d'
+                        );
                     }
                 }
             }
@@ -703,11 +984,17 @@ class Updater extends Base\Updater
         global $wpdb;
         global $wp_rewrite;
 
-        $wpdb->query( 'ALTER TABLE `' . Entities\StaffService::getTableName() . '` ADD COLUMN `deposit` VARCHAR(100) NOT NULL DEFAULT "100%" AFTER `price`' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `deposit` VARCHAR(100) NOT NULL DEFAULT "100%%" AFTER `price`',
+            $this->getTableName( 'ab_staff_services' )
+        ) );
         if ( get_option( 'bookly_service_extras_step_extras_enabled', 'missing' ) != 'missing' ) {
-            $this->rename_options( array( 'bookly_service_extras_step_extras_enabled' => 'bookly_service_extras_enabled' ) );
+            $this->renameOptions( array( 'bookly_service_extras_step_extras_enabled' => 'bookly_service_extras_enabled' ) );
         }
-        $wpdb->query( 'ALTER TABLE ' . Entities\Staff::getTableName() . ' ADD COLUMN `attachment_id` INT UNSIGNED DEFAULT NULL AFTER `wp_user_id`' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `attachment_id` INT UNSIGNED DEFAULT NULL AFTER `wp_user_id`',
+            $this->getTableName( 'ab_staff' )
+        ) );
         require_once  ABSPATH . 'wp-admin/includes/image.php';
         $support_types = array(
             'jpg'  => 'image/jpeg',
@@ -740,15 +1027,20 @@ class Updater extends Base\Updater
         add_option( 'ab_settings_company_logo_attachment_id', $attachment_id );
         delete_option( 'ab_settings_company_logo_path' );
         delete_option( 'ab_settings_company_logo_url' );
+        delete_option( 'ab_settings_company_logo' );
 
-        foreach ( Entities\Staff::query()->where( 'attachment_id', null )->fetchArray() as $item ) {
-            $media_path = $item['avatar_path'];
+        $items = $wpdb->get_results( sprintf(
+            'SELECT `id`, `avatar_url`, `avatar_path` FROM `%s` WHERE `attachment_id` IS NULL',
+            $this->getTableName( 'ab_staff' )
+        ) );
+        foreach ( $items as $item ) {
+            $media_path = $item->avatar_path;
             if ( file_exists( $media_path ) ) {
                 $ext = strtolower( pathinfo( $media_path, PATHINFO_EXTENSION ) );
                 if ( isset( $support_types, $ext ) ) {
                     $post_data = array(
                         'post_title'     => basename( $media_path ),
-                        'guid'           => $item['avatar_url'],
+                        'guid'           => $item->avatar_url,
                         'post_status'    => 'publish',
                         'ping_status'    => 'closed',
                         'post_type'      => 'attachment',
@@ -757,34 +1049,59 @@ class Updater extends Base\Updater
                     $attachment_id   = wp_insert_attachment( $post_data, $media_path );
                     $attachment_data = wp_generate_attachment_metadata( $attachment_id, $media_path );
                     wp_update_attachment_metadata( $attachment_id, $attachment_data );
-                    $staff = new Entities\Staff( $item );
-                    $staff->set( 'attachment_id', $attachment_id )->save();
+                    $wpdb->query( sprintf(
+                        'UPDATE `%s` SET `attachment_id` = %d WHERE `id` = %d',
+                        $this->getTableName( 'ab_staff' ),
+                        $attachment_id,
+                        $item->id
+                    ) );
                 }
             }
         }
-        $this->dropTableColumns( Entities\Staff::getTableName(), array( 'avatar_url', 'avatar_path' ) );
+        $this->dropTableColumns( $this->getTableName( 'ab_staff' ), array( 'avatar_url', 'avatar_path' ) );
 
-        $wpdb->query( 'UPDATE ' . Entities\Customer::getTableName() . ' SET `wp_user_id` = NULL WHERE `wp_user_id` = 0' );
+        $wpdb->query( sprintf( 'UPDATE `%s` SET `wp_user_id` = NULL WHERE `wp_user_id` = 0', $this->getTableName( 'ab_customers' ) ) );
     }
 
     function update_9_3()
     {
         global $wpdb;
 
-        if ( Entities\Notification::query()->where( 'type', 'client_pending_appointment_cart' )->count() == 0 ) {
-            $wpdb->query( 'ALTER TABLE ' . Entities\CustomerAppointment::getTableName() . ' ADD COLUMN `payment_id` INT UNSIGNED DEFAULT NULL, ADD COLUMN `compound_service_id` INT UNSIGNED DEFAULT NULL, ADD COLUMN `compound_token` VARCHAR(255) DEFAULT NULL' );
-            $wpdb->query( 'ALTER TABLE ' . Entities\Service::getTableName() . ' ADD COLUMN `type` ENUM("simple","compound") NOT NULL DEFAULT "simple", ADD COLUMN `sub_services` TEXT NOT NULL' );
-            $wpdb->query( 'UPDATE ' . Entities\Service::getTableName() . ' SET `sub_services` = \'[]\'' );
-            $wpdb->query( 'UPDATE ' . Entities\CustomerAppointment::getTableName() . ' SET `extras` = \'[]\' WHERE extras IS NULL' );
-            $wpdb->query( 'UPDATE ' . Entities\CustomerAppointment::getTableName() . ' ca JOIN ' . Entities\Payment::getTableName() . ' p ON p.customer_appointment_id = ca.id SET ca.payment_id = p.id' );
-            $this->dropTableColumns( Entities\Payment::getTableName(), array( 'customer_appointment_id' ) );
-            $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . ' ADD COLUMN `details` TEXT' );
-            $wpdb->query( 'ALTER TABLE ' . Entities\Appointment::getTableName() . ' ADD COLUMN `internal_note` TEXT' );
-            $wpdb->query( 'ALTER TABLE ' . Entities\CustomerAppointment::getTableName() . ' ADD CONSTRAINT FOREIGN KEY (payment_id) REFERENCES ' . Entities\Payment::getTableName() . '(id) ON DELETE SET NULL ON UPDATE CASCADE' );
-            if ( get_option( 'ab_db_version' ) != '9.2.1' ) {
-                $wpdb->query( 'ALTER TABLE ' . Entities\Service::getTableName() . ' ADD COLUMN `visibility` ENUM("public","private") NOT NULL DEFAULT "public"' );
-                $wpdb->query( 'ALTER TABLE ' . Entities\Staff::getTableName() . ' ADD COLUMN `visibility` ENUM("public","private") NOT NULL DEFAULT "public"' );
-            }
+        $exists = $wpdb->query( sprintf(
+            'SELECT 1 FROM `%s` WHERE `type` = "client_pending_appointment_cart" LIMIT 1',
+            $this->getTableName( 'ab_notifications' )
+        ) );
+        if ( ! $exists ) {
+            $wpdb->query( sprintf(
+                'ALTER TABLE `%s`
+                    ADD COLUMN `payment_id` INT UNSIGNED DEFAULT NULL,
+                    ADD COLUMN `compound_service_id` INT UNSIGNED DEFAULT NULL,
+                    ADD COLUMN `compound_token` VARCHAR(255) DEFAULT NULL',
+                $this->getTableName( 'ab_customer_appointments' )
+            ) );
+            $wpdb->query( sprintf(
+                'ALTER TABLE `%s`
+                    ADD COLUMN `type` ENUM("simple","compound") NOT NULL DEFAULT "simple",
+                    ADD COLUMN `sub_services` TEXT NOT NULL',
+                $this->getTableName( 'ab_services' )
+            ) );
+            $wpdb->query( sprintf( 'UPDATE `%s` SET `sub_services` = "[]"', $this->getTableName( 'ab_services' ) ) );
+            $wpdb->query( sprintf( 'UPDATE `%s` SET `extras` = "[]" WHERE `extras` IS NULL', $this->getTableName( 'ab_customer_appointments' ) ) );
+            $wpdb->query( sprintf( 'UPDATE `%s` `ca` JOIN `%s` `p` ON `p`.`customer_appointment_id` = `ca`.`id` SET `ca`.`payment_id` = `p`.`id`',
+                $this->getTableName( 'ab_customer_appointments' ),
+                $this->getTableName( 'ab_payments' )
+            ) );
+            $this->dropTableColumns( $this->getTableName( 'ab_payments' ), array( 'customer_appointment_id' ) );
+            $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `details` TEXT', $this->getTableName( 'ab_payments' ) ) );
+            $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `internal_note` TEXT', $this->getTableName( 'ab_appointments' ) ) );
+            $wpdb->query( sprintf(
+                'ALTER TABLE `%s` ADD CONSTRAINT FOREIGN KEY (payment_id) REFERENCES %s(id) ON DELETE SET NULL ON UPDATE CASCADE',
+                $this->getTableName( 'ab_customer_appointments' ),
+                $this->getTableName( 'ab_payments' )
+            ) );
+            $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `visibility` ENUM("public","private") NOT NULL DEFAULT "public"', $this->getTableName( 'ab_services' )  ) );
+            $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `visibility` ENUM("public","private") NOT NULL DEFAULT "public"', $this->getTableName( 'ab_staff' ) ) );
+
             $notifications = array(
                 array(
                     'gateway' => 'email',
@@ -817,39 +1134,24 @@ class Updater extends Base\Updater
                 ),
             );
             foreach ( $notifications as $data ) {
-                $notification = new Entities\Notification( $data );
-                $notification->save();
+                $wpdb->insert( $this->getTableName( 'ab_notifications' ), $data );
             }
             add_option( 'ab_settings_approve_page_url', home_url() );
             add_option( 'ab_settings_cart_notifications_combined', '0' );
         }
 
-        $appointments = Entities\CustomerAppointment::query( 'ca' )
-            ->select( 'ca.*' )
-            ->leftJoin( 'Payment', 'p', 'p.id = ca.payment_id' )
-            ->where( 'p.details', null )
-            ->order( 'DESC' )
-            ->fetchArray();
-        foreach ( $appointments as $fields ) {
-            $payment = new Entities\Payment();
-            if ( $payment->load( $fields['payment_id'] ) ) {
-                $coupon = null;
-                if ( $fields['coupon_code'] ) {
-                    $coupon = new Entities\Coupon();
-                    if ( ! $coupon->loadBy( array( 'code' => $fields['coupon_code'] ) ) ) {
-                        $coupon = null;
-                    }
-                }
-                $payment->setDetails( array( new Entities\CustomerAppointment( $fields ) ), $coupon )->save();
-            }
-        }
-        $this->dropTableColumns( Entities\CustomerAppointment::getTableName(), array( 'coupon_code', 'coupon_discount', 'coupon_deduction' ) );
+        $details = json_encode( array( 'items' => array(), 'coupon' => null, 'customer' => null ) );
+        $wpdb->query( $wpdb->prepare(
+            sprintf( 'UPDATE `%s` SET `details` = %%s', $this->getTableName( 'ab_payments' )  ),
+            $details
+        ) );
+        $this->dropTableColumns( $this->getTableName( 'ab_customer_appointments' ), array( 'coupon_code', 'coupon_discount', 'coupon_deduction' ) );
     }
 
     function update_9_2()
     {
         add_option( 'ab_appearance_required_employee', '0' );
-        $this->register_l10n_options( array( 'ab_appearance_text_required_employee' => __( 'Please select an employee', 'bookly' ) ) );
+        $this->addL10nOptions( array( 'ab_appearance_text_required_employee' => __( 'Please select an employee', 'bookly' ) ) );
     }
 
     function update_9_1()
@@ -862,7 +1164,10 @@ class Updater extends Base\Updater
         global $wpdb;
 
         add_option( 'ab_settings_default_appointment_status', 'approved' );
-        $wpdb->query( 'ALTER TABLE ' . Entities\CustomerAppointment::getTableName() . ' ADD COLUMN `status` ENUM("pending","approved","cancelled") NOT NULL DEFAULT "approved"' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `status` ENUM("pending","approved","cancelled") NOT NULL DEFAULT "approved"',
+            $this->getTableName( 'ab_customer_appointments' )
+        ) );
 
         $notifications = array(
             array(
@@ -910,15 +1215,14 @@ class Updater extends Base\Updater
             ),
         );
         foreach ( $notifications as $data ) {
-            $notification = new Entities\Notification( $data );
-            $notification->save();
+            $wpdb->insert( $this->getTableName( 'ab_notifications' ), $data );
         }
         $notification_types = array(
             'client_new_appointment' => 'client_approved_appointment',
             'staff_new_appointment'  => 'staff_approved_appointment',
         );
         foreach ( $notification_types as $deprecated => $name ) {
-            $wpdb->update( Entities\Notification::getTableName(), array( 'type' => $name ), array( 'type' => $deprecated ) );
+            $wpdb->update( $this->getTableName( 'ab_notifications' ), array( 'type' => $name ), array( 'type' => $deprecated ) );
         }
 
         $l10n_strings = array(
@@ -929,7 +1233,7 @@ class Updater extends Base\Updater
             'sms_client_new_appointment'           => 'sms_client_approved_appointment',
             'sms_staff_new_appointment'            => 'sms_staff_approved_appointment',
         );
-        $this->rename_l10n_strings( $l10n_strings, false );
+        $this->renameL10nStrings( $l10n_strings, false );
 
         $ab_cart_show_columns = array(
             'service'  => array( 'show' => 0 ),
@@ -947,20 +1251,23 @@ class Updater extends Base\Updater
     function update_8_5()
     {
         global $wpdb;
-        $wpdb->query( 'ALTER TABLE ' . Entities\Service::getTableName() . ' ADD COLUMN info TEXT NULL' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `info` TEXT NULL', $this->getTableName( 'ab_services' ) ) );
 
         // Mollie - online payments system.
         add_option( 'ab_mollie', 'disabled' );
         add_option( 'ab_mollie_api_key', '' );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorizeNet','stripe','2checkout','payulatam','payson','mollie') NOT NULL DEFAULT 'local'" );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorizeNet","stripe","2checkout","payulatam","payson","mollie") NOT NULL DEFAULT "local"',
+            $this->getTableName( 'ab_payments' )
+        ) );
 
         add_option( 'ab_settings_cron_reminder', array( 'client_follow_up' => 21, 'client_reminder' => 18, 'staff_agenda' => 18 ) );
         add_option( 'ab_cart_show_columns', array( 'service', 'date', 'time', 'employee', 'price' ) );
-        $wpdb->query( 'ALTER TABLE ' . Entities\CustomerAppointment::getTableName() . ' ADD COLUMN extras TEXT NULL' );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Appointment::getTableName() . ' ADD COLUMN extras_duration INT NOT NULL DEFAULT 0' );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Holiday::getTableName() . ' DROP COLUMN title' );
-        $this->rename_options( array( 'ab_settings_cart_enabled' => 'ab_settings_step_cart_enabled' ) );
-        $this->register_l10n_options( array( 'ab_appearance_text_label_pay_mollie' => __( 'I will pay now with Mollie', 'bookly' ) ) );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `extras` TEXT NULL', $this->getTableName( 'ab_customer_appointments' ) ) );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `extras_duration` INT NOT NULL DEFAULT 0', $this->getTableName( 'ab_appointments' ) ) );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` DROP COLUMN `title`', $this->getTableName( 'ab_holidays' ) ) );
+        $this->renameOptions( array( 'ab_settings_cart_enabled' => 'ab_settings_step_cart_enabled' ) );
+        $this->addL10nOptions( array( 'ab_appearance_text_label_pay_mollie' => __( 'I will pay now with Mollie', 'bookly' ) ) );
     }
 
     function update_8_4()
@@ -986,7 +1293,7 @@ class Updater extends Base\Updater
             do_action( 'wpml_register_single_string', 'bookly', $option_name, $option_value );
         }
 
-        $wpdb->query( 'ALTER TABLE ' . Entities\Staff::getTableName() . ' ADD COLUMN info TEXT NULL' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `info` TEXT NULL', $this->getTableName( 'ab_staff' ) ) );
     }
 
     function update_8_3()
@@ -1020,16 +1327,16 @@ class Updater extends Base\Updater
             'ab_appearance_text_info_fifth_step'       => 'ab_appearance_text_info_complete_step',
             'ab_woocommerce'                           => 'ab_woocommerce_enabled',
         );
-        $this->rename_options( $options );
+        $this->renameOptions( $options );
         unset( $options['ab_woocommerce'] );
-        $this->rename_l10n_strings( $options, false );
+        $this->renameL10nStrings( $options, false );
     }
 
     function update_8_0()
     {
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE ' . Entities\CustomerAppointment::getTableName() . ' ADD COLUMN `locale` VARCHAR(8) NULL' );
+        $wpdb->query( sprintf( 'ALTER TABLE `%s` ADD COLUMN `locale` VARCHAR(8) NULL', $this->getTableName( 'ab_customer_appointments' ) ) );
 
         add_option( 'ab_settings_minimum_time_prior_cancel', '0' );
         add_option( 'ab_settings_cancel_denied_page_url', home_url() );
@@ -1061,14 +1368,23 @@ class Updater extends Base\Updater
     {
         global $wpdb;
 
-        $wpdb->query( 'UPDATE ' . Entities\CustomerAppointment::getTableName() .' SET custom_fields = "[]" WHERE custom_fields IS NULL or custom_fields = ""' );
+        $wpdb->query( sprintf(
+            'UPDATE `%s` SET `custom_fields` = "[]" WHERE `custom_fields` IS NULL OR `custom_fields` = ""',
+            $this->getTableName( 'ab_customer_appointments' )
+        ) );
     }
 
     function update_7_8()
     {
         global $wpdb;
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " ADD COLUMN `status` ENUM('completed','pending') NOT NULL DEFAULT 'completed'" );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorizeNet','stripe','2checkout','payulatam','payson') NOT NULL DEFAULT 'local'" );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `status` ENUM("completed","pending") NOT NULL DEFAULT "completed"',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorizeNet","stripe","2checkout","payulatam","payson") NOT NULL DEFAULT "local"',
+            $this->getTableName( 'ab_payments' )
+        ) );
 
         // PayU Latam - online payments system.
         add_option( 'ab_payulatam', 'disabled' );
@@ -1097,8 +1413,14 @@ class Updater extends Base\Updater
     {
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . " CHANGE COLUMN `type` `type` ENUM('local','coupon','paypal','authorizeNet','stripe','2checkout') NOT NULL DEFAULT 'local'" );
-        $wpdb->query( 'ALTER TABLE ' . Entities\Payment::getTableName() . ' CHANGE COLUMN `transaction` `transaction_id` VARCHAR(255) NOT NULL' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `type` `type` ENUM("local","coupon","paypal","authorizeNet","stripe","2checkout") NOT NULL DEFAULT "local"',
+            $this->getTableName( 'ab_payments' )
+        ) );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` CHANGE COLUMN `transaction` `transaction_id` VARCHAR(255) NOT NULL',
+            $this->getTableName( 'ab_payments' )
+        ) );
 
         add_option( 'ab_currency', get_option( 'ab_paypal_currency', 'USD' ) );
         add_option( 'ab_2checkout', 'disabled' );
@@ -1125,7 +1447,10 @@ class Updater extends Base\Updater
     {
         global $wpdb;
 
-        $wpdb->query( 'ALTER TABLE ' . Entities\Service::getTableName() . ' ADD COLUMN `padding_left` INT NOT NULL DEFAULT 0, ADD COLUMN `padding_right` INT NOT NULL DEFAULT 0' );
+        $wpdb->query( sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `padding_left` INT NOT NULL DEFAULT 0, ADD COLUMN `padding_right` INT NOT NULL DEFAULT 0',
+            $this->getTableName( 'ab_services' )
+        ) );
     }
 
     function update_7_4()
@@ -1136,19 +1461,21 @@ class Updater extends Base\Updater
 
     function update_7_3()
     {
+        global $wpdb;
+
         add_option( 'ab_appearance_text_info_third_step_guest', '' );
 
-        $staff_members = Entities\Staff::query( 's' )->select( 's.id, s.full_name' )->fetchArray();
+        $staff_members = $wpdb->get_results( sprintf( 'SELECT `id`, `full_name` FROM `%s`', $this->getTableName( 'ab_staff' ) ) );
         foreach ( $staff_members as $staff ) {
-            do_action( 'wpml_register_single_string', 'bookly', 'staff_' . $staff['id'], $staff['full_name'] );
+            do_action( 'wpml_register_single_string', 'bookly', 'staff_' . $staff->id, $staff->full_name );
         }
-        $categories = Entities\Category::query( 'c' )->select( 'c.id, c.name' )->fetchArray();
+        $categories = $wpdb->get_results( sprintf( 'SELECT `id`, `name` FROM `%s`', $this->getTableName( 'ab_categories' ) ) );
         foreach ( $categories as $category ) {
-            do_action( 'wpml_register_single_string', 'bookly', 'category_' . $category['id'], $category['name'] );
+            do_action( 'wpml_register_single_string', 'bookly', 'category_' . $category->id, $category->name );
         }
-        $services = Entities\Service::query( 's' )->select( 's.id, s.title' )->fetchArray();
+        $services = $wpdb->get_results( sprintf( 'SELECT `id`, `title` FROM `%s`', $this->getTableName( 'ab_services' ) ) );
         foreach ( $services as $service ) {
-            do_action( 'wpml_register_single_string', 'bookly', 'service_' . $service['id'], $service['title'] );
+            do_action( 'wpml_register_single_string', 'bookly', 'service_' . $service->id, $service->title );
         }
     }
 
@@ -1157,210 +1484,25 @@ class Updater extends Base\Updater
         global $wpdb;
 
         // Register notifications for translate in WPML.
-        $notifications = Entities\Notification::query( 'n' )->select( 'n.gateway, n.type, n.subject, n.message');
-        foreach( $notifications->fetchArray() as $notification ){
-            do_action( 'wpml_register_single_string', 'bookly', $notification['gateway'].'_'.$notification['type'], $notification['message'] );
-            if ( $notification['gateway'] == 'email' ) {
-                do_action( 'wpml_register_single_string', 'bookly', $notification['gateway'].'_'.$notification['type'].'_subject', $notification['subject'] );
+        $notifications = $wpdb->get_results( sprintf(
+            'SELECT `gateway`, `type`, `subject`, `message` FROM `%s`',
+            $this->getTableName( 'ab_notifications' )
+        ) );
+        foreach ( $notifications as $notification ) {
+            do_action( 'wpml_register_single_string', 'bookly', $notification->gateway.'_'.$notification->type, $notification->message );
+            if ( $notification->gateway == 'email' ) {
+                do_action( 'wpml_register_single_string', 'bookly', $notification->gateway.'_'.$notification->type.'_subject', $notification->subject );
             }
         }
-        $options = $wpdb->get_results( 'SELECT option_value, option_name FROM '.$wpdb->options.' WHERE option_name LIKE \'ab_appearance_text_%\'' );
+        $options = $wpdb->get_results( sprintf(
+            'SELECT `option_value`, `option_name` FROM `%s` WHERE `option_name` LIKE "ab_appearance_text_%%"',
+            $wpdb->options
+        ) );
         foreach ( $options as $option ) {
             do_action( 'wpml_register_single_string', 'bookly', $option->option_name, $option->option_value );
         }
 
         add_option( 'ab_settings_phone_default_country', 'auto' );
-    }
-
-    function update_7_0_1()
-    {
-        global $wpdb;
-        // Recreate tables with constraints if they do not exist due to "Identifier name 'XXX' is too long".
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Service::getTableName() . '` (
-                `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `title`       VARCHAR(255) DEFAULT "",
-                `duration`    INT NOT NULL DEFAULT 900,
-                `price`       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                `color`       VARCHAR(255) NOT NULL DEFAULT "#FFFFFF",
-                `category_id` INT UNSIGNED,
-                `capacity`    INT NOT NULL DEFAULT 1,
-                `position`    INT NOT NULL DEFAULT 9999,
-                CONSTRAINT
-                    FOREIGN KEY (category_id)
-                    REFERENCES ' . Entities\Category::getTableName() . '(id)
-                    ON DELETE SET NULL
-                    ON UPDATE CASCADE
-            ) ENGINE = INNODB
-            DEFAULT CHARACTER SET = utf8
-            COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\StaffService::getTableName() . '` (
-                `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `staff_id`   INT UNSIGNED NOT NULL,
-                `service_id` INT UNSIGNED NOT NULL,
-                `price`      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                `capacity`   INT NOT NULL DEFAULT 1,
-                UNIQUE KEY unique_ids_idx (staff_id, service_id),
-                CONSTRAINT
-                    FOREIGN KEY (staff_id)
-                    REFERENCES ' . Entities\Staff::getTableName() . '(id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE,
-                CONSTRAINT
-                    FOREIGN KEY (service_id)
-                    REFERENCES ' . Entities\Service::getTableName() . '(id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE
-            ) ENGINE = INNODB
-            DEFAULT CHARACTER SET = utf8
-            COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\StaffScheduleItem::getTableName() . '` (
-                `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `staff_id`   INT UNSIGNED NOT NULL,
-                `day_index`  INT UNSIGNED NOT NULL,
-                `start_time` TIME,
-                `end_time`   TIME,
-                UNIQUE KEY unique_ids_idx (staff_id, day_index),
-                CONSTRAINT
-                    FOREIGN KEY (staff_id)
-                    REFERENCES ' . Entities\Staff::getTableName() . '(id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE
-             ) ENGINE = INNODB
-             DEFAULT CHARACTER SET = utf8
-             COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\ScheduleItemBreak::getTableName() . '` (
-                `id`                     INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `staff_schedule_item_id` INT UNSIGNED NOT NULL,
-                `start_time`             TIME,
-                `end_time`               TIME,
-                CONSTRAINT
-                    FOREIGN KEY (staff_schedule_item_id)
-                    REFERENCES ' . Entities\StaffScheduleItem::getTableName() . '(id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE
-             ) ENGINE = INNODB
-             DEFAULT CHARACTER SET = utf8
-             COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Appointment::getTableName() . '` (
-                `id`              INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `staff_id`        INT UNSIGNED NOT NULL,
-                `service_id`      INT UNSIGNED,
-                `start_date`      DATETIME NOT NULL,
-                `end_date`        DATETIME NOT NULL,
-                `google_event_id` VARCHAR(255) DEFAULT NULL,
-                CONSTRAINT
-                    FOREIGN KEY (staff_id)
-                    REFERENCES ' . Entities\Staff::getTableName() . '(id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE,
-                CONSTRAINT
-                    FOREIGN KEY (service_id)
-                    REFERENCES ' . Entities\Service::getTableName() . '(id)
-                    ON DELETE CASCADE
-                    ON UPDATE CASCADE
-            ) ENGINE = INNODB
-            DEFAULT CHARACTER SET = utf8
-            COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Holiday::getTableName() . '` (
-                  `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                  `staff_id`     INT UNSIGNED NULL DEFAULT NULL,
-                  `parent_id`    INT UNSIGNED NULL DEFAULT NULL,
-                  `date`         DATE NOT NULL,
-                  `repeat_event` TINYINT(1) NOT NULL DEFAULT 0,
-                  `title`        VARCHAR(255) DEFAULT "",
-                  CONSTRAINT
-                      FOREIGN KEY (staff_id)
-                      REFERENCES ' . Entities\Staff::getTableName() . '(id)
-                      ON DELETE CASCADE
-              ) ENGINE = INNODB
-              DEFAULT CHARACTER SET = utf8
-              COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\CustomerAppointment::getTableName() . '` (
-                `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `customer_id`       INT UNSIGNED NOT NULL,
-                `appointment_id`    INT UNSIGNED NOT NULL,
-                `number_of_persons` INT UNSIGNED NOT NULL DEFAULT 1,
-                `custom_fields`     TEXT,
-                `coupon_code`       VARCHAR(255) DEFAULT NULL,
-                `coupon_discount`   DECIMAL(10,2) DEFAULT NULL,
-                `coupon_deduction`  DECIMAL(10,2) DEFAULT NULL,
-                `token`             VARCHAR(255) DEFAULT NULL,
-                `time_zone_offset`  INT,
-                CONSTRAINT
-                    FOREIGN KEY (customer_id)
-                    REFERENCES  ' . Entities\Customer::getTableName() . '(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE,
-                CONSTRAINT
-                    FOREIGN KEY (appointment_id)
-                    REFERENCES  ' . Entities\Appointment::getTableName() . '(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE
-            ) ENGINE = INNODB
-            DEFAULT CHARACTER SET = utf8
-            COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\Payment::getTableName() . '` (
-                `id`                      INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `created`                 DATETIME NOT NULL,
-                `type`                    ENUM("local","coupon","paypal","authorizeNet","stripe") NOT NULL DEFAULT "local",
-                `customer_appointment_id` INT UNSIGNED NOT NULL,
-                `token`                   VARCHAR(255) NOT NULL,
-                `transaction`             VARCHAR(255) NOT NULL,
-                `total`                   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-                CONSTRAINT
-                    FOREIGN KEY (customer_appointment_id)
-                    REFERENCES  ' . Entities\CustomerAppointment::getTableName() . '(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE
-            ) ENGINE = INNODB
-            DEFAULT CHARACTER SET = utf8
-            COLLATE = utf8_general_ci'
-        );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS `' . Entities\SentNotification::getTableName() . '` (
-                `id`                      INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `customer_appointment_id` INT UNSIGNED,
-                `staff_id`                INT UNSIGNED,
-                `gateway`                 ENUM("email","sms") NOT NULL DEFAULT "email",
-                `type`                    VARCHAR(60) NOT NULL,
-                `created`                 DATETIME NOT NULL,
-                CONSTRAINT
-                    FOREIGN KEY (customer_appointment_id)
-                    REFERENCES  ' . Entities\CustomerAppointment::getTableName() . '(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE,
-                CONSTRAINT
-                    FOREIGN KEY (staff_id)
-                    REFERENCES  ' . Entities\Staff::getTableName() . '(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE
-              ) ENGINE = INNODB
-              DEFAULT CHARACTER SET = utf8
-              COLLATE = utf8_general_ci'
-        );
     }
 
     function update_7_0()
@@ -1443,40 +1585,40 @@ class Updater extends Base\Updater
 
         // Rename tables.
         $ab_tables = array(
-            'ab_appointment'          => Entities\Appointment::getTableName(),
-            'ab_category'             => Entities\Category::getTableName(),
-            'ab_coupons'              => Entities\Coupon::getTableName(),
-            'ab_customer'             => Entities\Customer::getTableName(),
-            'ab_customer_appointment' => Entities\CustomerAppointment::getTableName(),
-            'ab_holiday'              => Entities\Holiday::getTableName(),
-            'ab_notifications'        => Entities\Notification::getTableName(),
-            'ab_payment'              => Entities\Payment::getTableName(),
-            'ab_schedule_item_break'  => Entities\ScheduleItemBreak::getTableName(),
-            'ab_service'              => Entities\Service::getTableName(),
-            'ab_staff'                => Entities\Staff::getTableName(),
-            'ab_staff_schedule_item'  => Entities\StaffScheduleItem::getTableName(),
-            'ab_staff_service'        => Entities\StaffService::getTableName(),
+            'ab_appointment'          => $this->getTableName( 'ab_appointments' ),
+            'ab_category'             => $this->getTableName( 'ab_categories' ),
+            'ab_coupons'              => $this->getTableName( 'ab_coupons' ),
+            'ab_customer'             => $this->getTableName( 'ab_customers' ),
+            'ab_customer_appointment' => $this->getTableName( 'ab_customer_appointments' ),
+            'ab_holiday'              => $this->getTableName( 'ab_holidays' ),
+            'ab_notifications'        => $this->getTableName( 'ab_notifications' ),
+            'ab_payment'              => $this->getTableName( 'ab_payments' ),
+            'ab_schedule_item_break'  => $this->getTableName( 'ab_schedule_item_breaks' ),
+            'ab_service'              => $this->getTableName( 'ab_services' ),
+            'ab_staff'                => $this->getTableName( 'ab_staff' ),
+            'ab_staff_schedule_item'  => $this->getTableName( 'ab_staff_schedule_items' ),
+            'ab_staff_service'        => $this->getTableName( 'ab_staff_services' ),
         );
         foreach ( $ab_tables as $from => $to ) {
             $wpdb->query( "ALTER TABLE `{$from}` RENAME TO `{$to}`" );
         }
 
         $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS  `' . Entities\SentNotification::getTableName() . '` (
+            'CREATE TABLE IF NOT EXISTS  `' . $this->getTableName( 'ab_sent_notifications' ) . '` (
                 `id`                      INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 `customer_appointment_id` INT UNSIGNED,
                 `staff_id`                INT UNSIGNED,
                 `gateway`                 ENUM(\'email\',\'sms\') NOT NULL DEFAULT \'email\',
                 `type`                    VARCHAR(60) NOT NULL,
                 `created`                 DATETIME NOT NULL,
-                CONSTRAINT fk_' . Entities\SentNotification::getTableName() . '_' . Entities\CustomerAppointment::getTableName() . '_id
+                CONSTRAINT
                     FOREIGN KEY (customer_appointment_id)
-                    REFERENCES  ' . Entities\CustomerAppointment::getTableName() . '(id)
+                    REFERENCES  ' . $this->getTableName( 'ab_customer_appointments' ) . '(id)
                     ON DELETE   CASCADE
                     ON UPDATE   CASCADE,
-                CONSTRAINT fk_' . Entities\SentNotification::getTableName() . '_' . Entities\Staff::getTableName() . '_id
+                CONSTRAINT
                     FOREIGN KEY (staff_id)
-                    REFERENCES  ' . Entities\Staff::getTableName() . '(id)
+                    REFERENCES  ' . $this->getTableName( 'ab_staff' ) . '(id)
                     ON DELETE   CASCADE
                     ON UPDATE   CASCADE
               ) ENGINE = INNODB
@@ -1497,28 +1639,6 @@ class Updater extends Base\Updater
         global $wpdb;
 
         $wpdb->query( 'ALTER TABLE `ab_holiday` CHANGE `holiday` `date` DATE NOT NULL' );
-
-        $wpdb->query(
-            'CREATE TABLE IF NOT EXISTS  `ab_email_notification` (
-                `id`                      INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                `customer_appointment_id` INT UNSIGNED,
-                `staff_id`                INT UNSIGNED,
-                `type`                    VARCHAR(60) NOT NULL,
-                `created`                 DATETIME NOT NULL,
-                CONSTRAINT fk_ab_email_notification_customer_appointment_id
-                    FOREIGN KEY (customer_appointment_id)
-                    REFERENCES  ab_customer_appointment(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE,
-                CONSTRAINT fk_ab_email_notification_staff_id
-                    FOREIGN KEY (staff_id)
-                    REFERENCES  ab_staff(id)
-                    ON DELETE   CASCADE
-                    ON UPDATE   CASCADE
-              ) ENGINE = INNODB
-              DEFAULT CHARACTER SET = utf8
-              COLLATE = utf8_general_ci'
-        );
     }
 
     function update_6_0()
@@ -1622,7 +1742,11 @@ class Updater extends Base\Updater
         $payments = $wpdb->get_results( 'SELECT id, customer_id, appointment_id from `ab_payment`' );
 
         foreach ( $payments as $payment ) {
-            $customer_appointment = $wpdb->get_row( $wpdb->prepare( 'SELECT id from `ab_customer_appointment` WHERE `customer_id` = %d and `appointment_id` = %d LIMIT 1', $payment->customer_id, $payment->appointment_id ) );
+            $customer_appointment = $wpdb->get_row( $wpdb->prepare(
+                'SELECT id from `ab_customer_appointment` WHERE `customer_id` = %d and `appointment_id` = %d LIMIT 1',
+                $payment->customer_id,
+                $payment->appointment_id
+            ) );
             if ( $customer_appointment ) {
                 $wpdb->update( 'ab_payment', array( 'customer_appointment_id' => $customer_appointment->id ), array( 'id' => $payment->id ) );
             }
@@ -1667,7 +1791,7 @@ class Updater extends Base\Updater
 
         delete_option('ab_appearance_text_label_notes');
 
-        $wpdb->query( 'ALTER TABLE ab_payment CHANGE `type` `type` ENUM(\'local\', \'coupon\', \'paypal\', \'authorizeNet\', \'stripe\') NOT NULL DEFAULT \'local\';' );
+        $wpdb->query( 'ALTER TABLE ab_payment CHANGE `type` `type` ENUM("local","coupon","paypal","authorizeNet","stripe") NOT NULL DEFAULT "local";' );
     }
 
     function update_3_4()
@@ -1694,9 +1818,9 @@ class Updater extends Base\Updater
         $wpdb->query( '
             CREATE TABLE IF NOT EXISTS ab_coupons (
                 id        INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                code      VARCHAR ( 255 ) NOT NULL DEFAULT \'\',
-                discount  DECIMAL( 3, 0 ) NOT NULL DEFAULT  \'0\',
-                used      TINYINT ( 1 ) NOT NULL DEFAULT \'0\'
+                code      VARCHAR(255) NOT NULL DEFAULT "",
+                discount  DECIMAL(3,0) NOT NULL DEFAULT "0",
+                used      TINYINT(1) NOT NULL DEFAULT "0"
             ) ENGINE = INNODB
             DEFAULT CHARACTER SET = utf8
             COLLATE = utf8_general_ci;' );
@@ -1755,11 +1879,11 @@ class Updater extends Base\Updater
         $wpdb->query( 'ALTER TABLE ab_appointment DROP customer_id, DROP notes, DROP token;' );
 
         // Add Service and Staff capacity
-        $wpdb->query( 'ALTER TABLE ab_service ADD capacity INT NOT NULL DEFAULT \'1\';' );
-        $wpdb->query( 'ALTER TABLE ab_staff_service ADD capacity INT NOT NULL DEFAULT \'1\';' );
+        $wpdb->query( 'ALTER TABLE ab_service ADD capacity INT NOT NULL DEFAULT "1"' );
+        $wpdb->query( 'ALTER TABLE ab_staff_service ADD capacity INT NOT NULL DEFAULT "1"' );
 
         // Delete table ab_payment_appointment
-        $wpdb->query( 'ALTER TABLE ab_payment ADD appointment_id INT UNSIGNED DEFAULT NULL;' );
+        $wpdb->query( 'ALTER TABLE ab_payment ADD appointment_id INT UNSIGNED DEFAULT NULL' );
 
         $payments_appointment = $wpdb->get_results( 'SELECT * from ab_payment_appointment' );
         foreach ( $payments_appointment as $payment_appointment ) {
@@ -1770,7 +1894,7 @@ class Updater extends Base\Updater
 
         $wpdb->query( '
             ALTER TABLE `ab_payment`
-            ADD INDEX ab_payment_appointment_id_idx ( `appointment_id` ),
+            ADD INDEX ab_payment_appointment_id_idx (`appointment_id`),
             ADD CONSTRAINT fk_ab_payment_appointment_id
             FOREIGN KEY ab_payment_appointment_id_idx (appointment_id)
             REFERENCES  ab_appointment(id)
@@ -1791,7 +1915,7 @@ class Updater extends Base\Updater
         global $wpdb;
 
         // stripe.com
-        $wpdb->query( 'ALTER TABLE ab_payment CHANGE `type` `type` ENUM(\'local\', \'paypal\', \'authorizeNet\', \'stripe\') NOT NULL DEFAULT \'local\'' );
+        $wpdb->query( 'ALTER TABLE ab_payment CHANGE `type` `type` ENUM("local","paypal","authorizeNet","stripe") NOT NULL DEFAULT "local"' );
         add_option( 'ab_stripe', '0', '', 'yes' );
         add_option( 'ab_stripe_secret_key', '', '', 'yes' );
 
@@ -1810,7 +1934,7 @@ class Updater extends Base\Updater
         delete_option( 'ab_local_mode' );
 
         // Add Authorize.net option
-        $wpdb->query( "ALTER TABLE ab_payment CHANGE `type` `type` ENUM('local', 'paypal', 'authorizeNet') NOT NULL DEFAULT 'local'" );
+        $wpdb->query( 'ALTER TABLE ab_payment CHANGE `type` `type` ENUM("local","paypal","authorizeNet") NOT NULL DEFAULT "local"' );
         add_option( 'ab_authorizenet_api_login_id',   '', '', 'yes' );
         add_option( 'ab_authorizenet_transaction_key',   '', '', 'yes' );
         add_option( 'ab_authorizenet_sandbox',  0, '', 'yes' );

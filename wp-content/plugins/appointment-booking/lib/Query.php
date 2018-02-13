@@ -68,6 +68,9 @@ class Query
     /** @var string */
     protected $namespace;
 
+    /** @var string  */
+    protected $alias;
+
     /** @var array */
     protected $schema;
 
@@ -79,6 +82,7 @@ class Query
      */
     public function __construct( $entity, $default_alias = 'r' )
     {
+        /** @var Base\Entity $entity */
         $this->entity    = $entity;
         $this->namespace = substr( $entity, 0, strrpos( $entity, '\\' ) );
         $this->schema    = call_user_func( array ( $this->entity, 'getSchema' ) );
@@ -107,6 +111,23 @@ class Query
     {
         $this->type   = self::TYPE_SELECT;
         $this->target = $target !== null ? $target : "`{$this->alias}`.*";
+
+        return $this;
+    }
+
+    /**
+     * Specify fields to be selected.
+     *
+     * @param $target
+     * @return $this
+     */
+    public function addSelect( $target )
+    {
+        if ( $this->target == '' ) {
+            $this->select( $target );
+        } else {
+            $this->target .= ', ' . $target;
+        }
 
         return $this;
     }
@@ -605,7 +626,7 @@ class Query
     /**
      * Execute query and hydrate result as entity.
      *
-     * @return Base\Entity[]
+     * @return array  Array of entities
      */
     public function find()
     {
@@ -615,7 +636,7 @@ class Query
     /**
      * Execute query and fetch one result.
      *
-     * @return Base\Entity
+     * @return object  Entity
      */
     public function findOne()
     {
@@ -623,6 +644,7 @@ class Query
 
         if ( $result ) {
             $entity = $this->entity;
+            /** @var Base\Entity $object */
             $object = new $entity();
             $object->setFields( $result, true );
             $result = $object;
@@ -672,7 +694,7 @@ class Query
             if ( $q['type'] == 'where' ) {
                 list ( $field, $format ) = $this->_normalize( $q['column'] );
                 $where .= " {$q['glue']} {$field} ";
-                if ( $q['value'] == null ) {
+                if ( $q['value'] === null ) {
                     $where .= 'IS NULL';
                 } else {
                     $where .= "= {$format}";
@@ -682,7 +704,7 @@ class Query
             elseif ( $q['type'] == 'not' ) {
                 list ( $field, $format ) = $this->_normalize( $q['column'] );
                 $where .= " {$q['glue']} {$field} ";
-                if ( $q['value'] == null ) {
+                if ( $q['value'] === null ) {
                     $where .= 'IS NOT NULL';
                 } else {
                     $where .= "!= {$format}";
@@ -785,7 +807,7 @@ class Query
         }
 
         // Finish where clause
-        if ( ! empty( $where ) ) {
+        if ( $where != '' ) {
             $where = ' WHERE ' . substr( $where, strpos( $where, ' ', 1 ) + 1 );
         }
 
@@ -832,7 +854,7 @@ class Query
             case self::TYPE_DELETE:
                 return $this->_prepare( "DELETE {$this->target} FROM `{$table}` AS `{$this->alias}`{$join}{$where}", $values );
             case self::TYPE_UPDATE:
-                return $this->_prepare( "UPDATE `{$table}` AS `{$this->alias}` SET {$set}{$where}", $values );
+                return $this->_prepare( "UPDATE `{$table}` AS `{$this->alias}`{$join} SET {$set}{$where}", $values );
             case self::TYPE_SELECT:
             default:
                 return $this->_prepare( "SELECT {$this->target} FROM `{$table}` AS `{$this->alias}`{$join}{$where}{$group}{$having}{$order}{$limit}{$offset}", $values );

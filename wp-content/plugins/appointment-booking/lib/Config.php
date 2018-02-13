@@ -5,37 +5,59 @@ namespace Bookly\Lib;
  * Class Config
  * @package Bookly\Lib
  *
+ * @method static bool authorizeNetActive()            Check whether Authorize.Net add-on is active or not.
  * @method static bool chainAppointmentsActive()       Check whether Chain Appointment add-on is active or not.
  * @method static bool compoundServicesActive()        Check whether Compound Services add-on is active or not.
+ * @method static bool couponsActive()                 Check whether Coupons add-on is active or not.
+ * @method static bool customerGroupsActive()          Check whether Customer Groups add-on is active or not.
+ * @method static bool customFieldsActive()            Check whether Custom Fields add-on is active or not.
  * @method static bool depositPaymentsActive()         Check whether Deposit Payments add-on is active or not.
+ * @method static bool filesActive()                   Check whether Files add-on is active or not.
+ * @method static bool groupBookingActive()            Check whether Group Booking add-on is active or not.
  * @method static bool locationsActive()               Check whether Locations add-on is active or not.
+ * @method static bool mollieActive()                  Check whether Mollie add-on is active or not.
  * @method static bool multiplyAppointmentsActive()    Check whether Multiply Appointments add-on is active or not.
+ * @method static bool packagesActive()                Check whether Packages add-on is active or not.
+ * @method static bool paysonActive()                  Check whether Payson add-on is active or not.
+ * @method static bool payuLatamActive()               Check whether PayU Latam add-on is active or not.
  * @method static bool recurringAppointmentsActive()   Check whether Recurring Appointments add-on is active or not.
  * @method static bool serviceExtrasActive()           Check whether Extras add-on is active or not.
  * @method static bool serviceScheduleActive()         Check whether Service Schedule add-on is active or not.
  * @method static bool specialDaysActive()             Check whether Special Days add-on is active or not.
  * @method static bool specialHoursActive()            Check whether Special Hours add-on is active or not.
  * @method static bool staffCabinetActive()            Check whether Staff Cabinet add-on is active or not.
- * @method static bool packagesActive()                Check whether Packages add-on is active or not.
+ * @method static bool stripeActive()                  Check whether Stripe add-on is active or not.
  * @method static bool waitingListActive()             Check whether Waiting List add-on is active or not.
+ *
+ *
+ * @method static bool authorizeNetEnabled()           Check whether Authorize.Net add-on is enabled or not.
  * @method static bool chainAppointmentsEnabled()      Check whether Chain Appointment add-on is enabled or not.
  * @method static bool compoundServicesEnabled()       Check whether Compound Services add-on is enabled or not.
+ * @method static bool couponsEnabled()                Check whether Coupons add-on is enabled or not.
+ * @method static bool customerGroupsEnabled()         Check whether Customer Groups add-on is enabled or not.
+ * @method static bool customFieldsEnabled()           Check whether Custom Fields add-on is enabled or not.
  * @method static bool depositPaymentsEnabled()        Check whether Deposit Payments add-on is enabled or not.
+ * @method static bool filesEnabled()                  Check whether Files List add-on is enabled or not.
+ * @method static bool groupBookingEnabled()           Check whether Group Booking add-on is enabled or not.
  * @method static bool locationsEnabled()              Check whether Locations add-on is enabled or not.
+ * @method static bool mollieEnabled()                 Check whether Mollie add-on is enabled or not.
  * @method static bool multiplyAppointmentsEnabled()   Check whether Multiply Appointments add-on is enabled or not.
+ * @method static bool packagesEnabled()               Check whether Packages add-on is enabled or not.
+ * @method static bool paysonEnabled()                 Check whether Payson add-on is enabled or not.
+ * @method static bool payuLatamEnabled()              Check whether PayU Latam add-on is enabled or not.
  * @method static bool recurringAppointmentsEnabled()  Check whether Recurring Appointments add-on is enabled or not.
  * @method static bool serviceExtrasEnabled()          Check whether Extras add-on is enabled or not.
  * @method static bool serviceScheduleEnabled()        Check whether Service Schedule add-on is enabled or not.
  * @method static bool specialDaysEnabled()            Check whether Special Days add-on is enabled or not.
  * @method static bool specialHoursEnabled()           Check whether Special Hours add-on is enabled or not.
  * @method static bool staffCabinetEnabled()           Check whether Staff Cabinet add-on is enabled or not.
- * @method static bool packagesEnabled()               Check whether Packages add-on is enabled or not.
+ * @method static bool stripeEnabled()                 Check whether Stripe add-on is enabled or not.
  * @method static bool waitingListEnabled()            Check whether Waiting List add-on is enabled or not.
  */
 abstract class Config
 {
     /** @var string */
-    private static $wp_timezone = null;
+    private static $wp_timezone;
 
     /**
      * Get categories, services and staff members for drop down selects
@@ -63,25 +85,31 @@ abstract class Config
         }
 
         // Services.
-        $rows = Entities\Service::query( 's' )
-            ->select( 's.id, s.category_id, s.title, s.position, s.duration,
-                MIN(ss.capacity_min) AS min_capacity, MAX(ss.capacity_max) AS max_capacity' )
+        $query = Entities\Service::query( 's' )
+            ->select( 's.id, s.category_id, s.title, s.position, s.duration' )
             ->innerJoin( 'StaffService', 'ss', 'ss.service_id = s.id' )
             ->where( 's.type',  Entities\Service::TYPE_SIMPLE )
-            ->whereNot( 's.visibility', 'private' )
-            ->groupBy( 's.id' )
-            ->fetchArray();
-        foreach ( $rows as $row ) {
+            ->where( 's.visibility', Entities\Service::VISIBILITY_PUBLIC )
+            ->groupBy( 's.id' );
+        if ( self::groupBookingEnabled() ) {
+            $query->addSelect( 'MIN(ss.capacity_min) AS min_capacity, MAX(ss.capacity_max) AS max_capacity' );
+        } else {
+            $query->addSelect( '1 AS min_capacity, 1 AS max_capacity' );
+        }
+
+        $query = Proxy\CustomerGroups::prepareCaSeStQuery( $query );
+
+        foreach ( $query->fetchArray() as $row ) {
             $result['services'][ $row['id'] ] = array(
                 'id'          => (int) $row['id'],
                 'category_id' => (int) $row['category_id'],
                 'name'        => $row['title'] == ''
                     ? __( 'Untitled', 'bookly' )
                     : Utils\Common::getTranslatedString( 'service_' . $row['id'], $row['title'] ),
-                'duration'     => \Bookly\Lib\Utils\DateTime::secondsToInterval( $row['duration'] ),
+                'duration'     => Utils\DateTime::secondsToInterval( $row['duration'] ),
                 'min_capacity' => (int) $row['min_capacity'],
                 'max_capacity' => (int) $row['max_capacity'],
-                'has_extras'   => (int) ( \Bookly\Lib\Proxy\ServiceExtras::findByServiceId( $row['id'] ) ),
+                'has_extras'   => (int) ( Proxy\ServiceExtras::findByServiceId( $row['id'] ) ),
                 'pos'          => (int) $row['position'],
             );
 
@@ -94,15 +122,24 @@ abstract class Config
             }
         }
 
+        if ( self::groupBookingEnabled() ) {
+            $fields = 'st.id, st.full_name, st.position, ss.service_id, ss.capacity_min, ss.capacity_max, ss.price';
+        } else {
+            $fields = 'st.id, st.full_name, st.position, ss.service_id, 1 AS capacity_min, 1 AS capacity_max, ss.price';
+        }
+
         // Staff.
-        $rows = Entities\Staff::query( 'st' )
-            ->select( 'st.id, st.full_name, st.position, ss.service_id, ss.capacity_min, ss.capacity_max, ss.price' )
+        $query = Entities\Staff::query( 'st' )
+            ->select( $fields )
             ->innerJoin( 'StaffService', 'ss', 'ss.staff_id = st.id' )
             ->leftJoin( 'Service', 's', 's.id = ss.service_id' )
             ->whereNot( 'st.visibility', 'private' )
-            ->whereNot( 's.visibility', 'private' )
-            ->fetchArray();
-        foreach ( $rows as $row ) {
+            ->whereNot( 's.type', Entities\Service::TYPE_PACKAGE )
+            ->where( 's.visibility', Entities\Service::VISIBILITY_PUBLIC );
+
+        $query = Proxy\CustomerGroups::prepareCaSeStQuery( $query );
+
+        foreach ( $query->fetchArray() as $row ) {
             if ( ! isset ( $result['staff'][ $row['id'] ] ) ) {
                 $result['staff'][ $row['id'] ] = array(
                     'id'       => (int) $row['id'],
@@ -258,52 +295,54 @@ abstract class Config
     }
 
     /**
-     * Get value of option for given payment type.
-     *
-     * @param string $type
-     * @return string
-     */
-    public static function getPaymentTypeOption( $type )
-    {
-        return get_option( 'bookly_pmt_' . $type, 'disabled' );
-    }
-
-    /**
-     * Check whether given payment type is enabled.
-     *
-     * @param string $type
-     * @return bool
-     */
-    public static function paymentTypeEnabled( $type )
-    {
-        return self::getPaymentTypeOption( $type ) != 'disabled';
-    }
-
-    /**
      * Check whether payment step is disabled.
      *
      * @return bool
      */
     public static function paymentStepDisabled()
     {
-        $types = array(
-            Entities\Payment::TYPE_2CHECKOUT,
-            Entities\Payment::TYPE_AUTHORIZENET,
-            Entities\Payment::TYPE_LOCAL,
-            Entities\Payment::TYPE_MOLLIE,
-            Entities\Payment::TYPE_PAYPAL,
-            Entities\Payment::TYPE_PAYSON,
-            Entities\Payment::TYPE_PAYULATAM,
-            Entities\Payment::TYPE_STRIPE,
+        return ! ( Config::payLocallyEnabled()
+            || Config::twoCheckoutEnabled()
+            || Config::authorizeNetEnabled()
+            || Config::mollieEnabled()
+            || Config::paysonEnabled()
+            || Config::payuLatamEnabled()
+            || Config::stripeEnabled()
+            || Config::paypalEnabled()
         );
+    }
 
-        foreach ( $types as $type ) {
-            if ( self::paymentTypeEnabled( $type ) ) {
-                return false;
-            }
-        }
+    /**
+     * @return bool
+     */
+    public static function twoCheckoutEnabled()
+    {
+        return self::__callStatic( '2checkoutEnabled', array() );
+    }
 
-        return true;
+    /**
+     * @return bool
+     */
+    public static function payLocallyEnabled()
+    {
+        return get_option( 'bookly_pmt_local' ) == 1;
+    }
+
+    /**
+     * @return bool
+     */
+    public static function paypalEnabled()
+    {
+        return get_option( 'bookly_paypal_enabled' ) != '0';
+    }
+
+    /**
+     *
+     * @return bool
+     */
+    public static function twoCheckoutActive()
+    {
+        return self::__callStatic( '2checkoutActive', array() );
     }
 
     /**
@@ -365,6 +404,26 @@ abstract class Config
     }
 
     /**
+     * Whether to use first and last customer name instead full name.
+     *
+     * @return bool
+     */
+    public static function showFirstLastName()
+    {
+        return (bool) get_option( 'bookly_cst_first_last_name', false );
+    }
+
+    /**
+     * Whether to show notes field.
+     *
+     * @return bool
+     */
+    public static function showNotes()
+    {
+        return (bool) get_option( 'bookly_app_show_notes', false );
+    }
+
+    /**
      * Whether to show fully booked time slots in the second step of booking form.
      *
      * @return bool
@@ -385,6 +444,31 @@ abstract class Config
     }
 
     /**
+     * Whether to show time zone switcher at the time step of booking form.
+     *
+     * @return bool
+     */
+    public static function showTimeZoneSwitcher()
+    {
+        return (bool) get_option( 'bookly_app_show_time_zone_switcher', false );
+    }
+
+    /**
+     * Say if need show price for each payment system.
+     *
+     * @return bool
+     */
+    public static function showCorrectedPrice()
+    {
+        $show_corrected_price = self::paypalEnabled() && ( (float) get_option( 'bookly_paypal_increase' ) != 0 || (float) get_option( 'bookly_paypal_addition' ) != 0 );
+        if ( ! $show_corrected_price ) {
+            $show_corrected_price = Proxy\Shared::showCorrectedPrice( $show_corrected_price );
+        }
+
+        return $show_corrected_price;
+    }
+
+    /**
      * Whether phone field is required at the Details step or not.
      *
      * @return bool
@@ -402,6 +486,16 @@ abstract class Config
     public static function customFieldsPerService()
     {
         return get_option( 'bookly_custom_fields_per_service' ) == 1;
+    }
+
+    /**
+     * Whether to show single instance of custom fields for repeating services.
+     *
+     * @return bool
+     */
+    public static function customFieldsMergeRepeating()
+    {
+        return get_option( 'bookly_custom_fields_merge_repeating' ) == 1;
     }
 
     /**

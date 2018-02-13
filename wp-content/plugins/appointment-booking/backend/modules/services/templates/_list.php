@@ -4,6 +4,7 @@ use Bookly\Lib\Utils\DateTime;
 use Bookly\Lib\Utils\Price;
 use Bookly\Lib\Proxy;
 use Bookly\Lib\Entities\Service;
+use Bookly\Lib;
 
 $time_interval = get_option( 'bookly_gen_time_slot_length' );
 ?>
@@ -27,9 +28,9 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                                     <span class="bookly-service-color bookly-margin-right-sm bookly-js-service bookly-js-service-simple bookly-js-service-compound bookly-js-service-package"
                                           style="background-color: <?php echo esc_attr( $service['colors'][0] == '-1' ? 'grey' : $service['colors'][0] ) ?>">&nbsp;</span>
                                     <span class="bookly-service-color bookly-margin-right-sm bookly-js-service bookly-js-service-compound bookly-js-service-package"
-                                          style="background-color: <?php echo esc_attr( $service['colors'][1] == '-1' ? 'grey' : $service['colors'][1] ) ?>; <?php if ( $service['type'] == \Bookly\Lib\Entities\Service::TYPE_SIMPLE ) : ?>display: none;<?php endif ?>">&nbsp;</span>
+                                          style="background-color: <?php echo esc_attr( $service['colors'][1] == '-1' ? 'grey' : $service['colors'][1] ) ?>; <?php if ( $service['type'] == Service::TYPE_SIMPLE ) : ?>display: none;<?php endif ?>">&nbsp;</span>
                                     <span class="bookly-service-color bookly-margin-right-sm bookly-js-service bookly-js-service-package"
-                                          style="background-color: <?php echo esc_attr( $service['colors'][2] == '-1' ? 'grey' : $service['colors'][2] ) ?>; <?php if ( $service['type'] != \Bookly\Lib\Entities\Service::TYPE_PACKAGE ) : ?>display: none;<?php endif ?>">&nbsp;</span>
+                                          style="background-color: <?php echo esc_attr( $service['colors'][2] == '-1' ? 'grey' : $service['colors'][2] ) ?>; <?php if ( $service['type'] != Service::TYPE_PACKAGE ) : ?>display: none;<?php endif ?>">&nbsp;</span>
                                 </div>
                                 <div class="bookly-flex-cell bookly-vertical-middle">
                                     <a role="button" class="panel-title collapsed bookly-js-service-title" data-toggle="collapse"
@@ -44,7 +45,15 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                             <div class="bookly-flexbox">
                                 <div class="bookly-flex-cell bookly-vertical-middle hidden-xs" style="width: 60%">
                                 <span class="bookly-js-service-duration">
-                                    <?php echo ( $service['type'] == \Bookly\Lib\Entities\Service::TYPE_SIMPLE || $service['type'] == \Bookly\Lib\Entities\Service::TYPE_PACKAGE ? DateTime::secondsToInterval( $service['duration'] ) : sprintf( _n( '%d service', '%d services', count( $service['sub_services'] ), 'bookly' ), count( $service['sub_services'] ) ) ) ?>
+                                    <?php
+                                        switch ( $service['type'] ) {
+                                            case Service::TYPE_SIMPLE:
+                                            case Service::TYPE_PACKAGE:
+                                                echo DateTime::secondsToInterval( $service['duration'] ); break;
+                                            case Service::TYPE_COMPOUND:
+                                                echo sprintf( _n( '%d service', '%d services', $service['sub_services_count'], 'bookly' ), $service['sub_services_count'] ); break;
+                                        }
+                                    ?>
                                 </span>
                                 </div>
                                 <div class="bookly-flex-cell bookly-vertical-middle hidden-xs" style="width: 30%">
@@ -69,7 +78,7 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                                 <div class="form-group">
                                     <div class="radio">
                                         <label class="bookly-margin-right-md">
-                                            <input type="radio" name="type" value="simple" data-panel-class="panel-default" <?php echo checked( $service['type'] == \Bookly\Lib\Entities\Service::TYPE_SIMPLE ) ?>><?php _e( 'Simple', 'bookly' ) ?>
+                                            <input type="radio" name="type" value="simple" data-panel-class="panel-default" <?php echo checked( $service['type'] == Service::TYPE_SIMPLE ) ?>><?php _e( 'Simple', 'bookly' ) ?>
                                         </label>
                                     </div>
                                 </div>
@@ -91,15 +100,16 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                                     </div>
                                 </div>
                             </div>
-                            <?php Proxy\Packages::renderServicePackage( $service, $service_collection,  $service['sub_services'] ) ?>
+                            <?php Proxy\Packages::renderServicePackage( $service, $service_collection ) ?>
                             <div class="row">
                                 <div class="col-sm-4 bookly-js-service bookly-js-service-simple bookly-js-service-compound bookly-js-service-package">
                                     <div class="form-group">
                                         <label for="visibility_<?php echo $service_id ?>"><?php _e( 'Visibility', 'bookly' ) ?></label>
                                         <p class="help-block"><?php _e( 'To make service invisible to your customers set the visibility to "Private".', 'bookly' ) ?></p>
-                                        <select name="visibility" class="form-control" id="visibility_<?php echo $service_id ?>">
-                                            <option value="public" <?php selected( $service['visibility'], 'public' ) ?>><?php _e( 'Public', 'bookly' ) ?></option>
-                                            <option value="private" <?php selected( $service['visibility'], 'private' ) ?>><?php _e( 'Private', 'bookly' ) ?></option>
+                                        <select name="visibility" class="form-control bookly-js-visibility" id="visibility_<?php echo $service_id ?>">
+                                            <option value="public" <?php selected( $service['visibility'], Service::VISIBILITY_PUBLIC ) ?>><?php _e( 'Public', 'bookly' ) ?></option>
+                                            <option value="private" <?php selected( $service['visibility'] == Service::VISIBILITY_PRIVATE || ( $service['visibility'] == Service::VISIBILITY_GROUP_BASED && ! Lib\Config::customerGroupsEnabled() ) ) ?>><?php _e( 'Private', 'bookly' ) ?></option>
+                                            <?php Proxy\CustomerGroups::renderServiceVisibilityOption( $service ) ?>
                                         </select>
                                     </div>
                                 </div>
@@ -109,22 +119,11 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                                         <input id="price_<?php echo $service_id ?>" class="form-control bookly-question" type="number" min="0" step="1" name="price" value="<?php echo esc_attr( $service['price'] ) ?>">
                                     </div>
                                 </div>
-                                <div class="col-sm-4 bookly-js-service bookly-js-service-simple">
-                                    <div class="form-group">
-                                        <label for="capacity_<?php echo $service_id ?>"><?php _e( 'Capacity (min and max)', 'bookly' ) ?></label>
-                                        <p class="help-block"><?php _e( 'The minimum and maximum number of customers allowed to book the service for the certain time period.', 'bookly' ) ?></p>
-                                        <div class="row">
-                                            <div class="col-xs-6">
-                                                <input id="capacity_min_<?php echo $service_id ?>" class="form-control bookly-question bookly-js-capacity" type="number" min="1" step="1" name="capacity_min" value="<?php echo esc_attr( $service['capacity_min'] ) ?>">
-                                            </div>
-                                            <div class="col-xs-6">
-                                                <input id="capacity_max_<?php echo $service_id ?>" class="form-control bookly-question bookly-js-capacity" type="number" min="1" step="1" name="capacity_max" value="<?php echo esc_attr( $service['capacity_max'] ) ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <input type="hidden" name="capacity_min" value="1">
+                                <input type="hidden" name="capacity_max" value="1">
+                                <?php Proxy\GroupBooking::renderServiceCapacity( $service ) ?>
                             </div>
-
+                            <?php Proxy\CustomerGroups::renderServicesSubForm( $service ) ?>
                             <div class="bookly-js-service bookly-js-service-simple">
                                 <div class="row">
                                     <div class="col-sm-4 bookly-js-service bookly-js-service-simple">
@@ -156,6 +155,20 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                                                         <option value="0"><?php _e( 'OFF', 'bookly' ) ?></option>
                                                         <?php for ( $j = $time_interval; $j <= 1440; $j += $time_interval ) : ?><?php if ( $service['padding_right'] > 0 && $service['padding_right'] / 60 > $j - $time_interval && $service['padding_right'] / 60 < $j ) : ?><option value="<?php echo esc_attr( $service['padding_right'] ) ?>" selected><?php echo DateTime::secondsToInterval( $service['padding_right'] ) ?></option><?php endif ?><option value="<?php echo $j * 60 ?>" <?php selected( $service['padding_right'], $j * 60 ) ?>><?php echo DateTime::secondsToInterval( $j * 60 ) ?></option><?php endfor ?>
                                                     </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-4 bookly-js-service bookly-js-service-simple">
+                                        <div class="form-group">
+                                            <label for="start_time_info_<?php echo $service_id ?>"><?php _e( 'Start and end times of the appointment', 'bookly' ) ?></label>
+                                            <p class="help-block"><?php _e( 'Allows to set the start and end times for an appointment for services with the duration of 1 day or longer. This time will be displayed in notifications to customers.', 'bookly' ) ?></p>
+                                            <div class="row">
+                                                <div class="col-xs-6">
+                                                    <input id="start_time_info_<?php echo $service_id ?>" class="form-control" type="text" name="start_time_info" value="<?php echo esc_attr( $service['start_time_info'] ) ?>">
+                                                </div>
+                                                <div class="col-xs-6">
+                                                    <input class="form-control" type="text" name="end_time_info" value="<?php echo esc_attr( $service['end_time_info'] ) ?>">
                                                 </div>
                                             </div>
                                         </div>
@@ -234,6 +247,35 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                                 </div>
                             </div>
 
+                            <div class="bookly-js-service bookly-js-service-simple bookly-js-service-compound">
+                                <div class="row">
+                                    <div class="col-sm-8">
+                                        <label for="appointments_limit_<?php echo $service_id ?>">
+                                            <?php _e( 'Limit appointments per customer', 'bookly' ) ?>
+                                        </label>
+                                        <p class="help-block"><?php _e( 'Allows you to limit the frequency of service bookings per customer.', 'bookly' ) ?></p>
+                                        <div class="row">
+                                            <div class="col-sm-6">
+                                                <div class="form-group">
+                                                    <input id="appointments_limit_<?php echo $service_id ?>" class="form-control" type="number" min="0" step="1" name="appointments_limit" value="<?php echo esc_attr( $service['appointments_limit'] ) ?>">
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="form-group">
+                                                    <select id="limit_period_<?php echo $service_id ?>" class="form-control" name="limit_period">
+                                                        <option value="off"><?php _e( 'OFF', 'bookly' ) ?></option>
+                                                        <option value="day"<?php selected( 'day', $service['limit_period'] ) ?>><?php _e( 'per day', 'bookly' ) ?></option>
+                                                        <option value="week"<?php selected( 'week', $service['limit_period'] ) ?>><?php _e( 'per week', 'bookly' ) ?></option>
+                                                        <option value="month"<?php selected( 'month', $service['limit_period'] ) ?>><?php _e( 'per month', 'bookly' ) ?></option>
+                                                        <option value="year"<?php selected( 'year', $service['limit_period'] ) ?>><?php _e( 'per year', 'bookly' ) ?></option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="form-group bookly-js-service bookly-js-service-simple bookly-js-service-compound bookly-js-service-package">
                                 <label for="info_<?php echo $service_id ?>">
                                     <?php _e( 'Info', 'bookly' ) ?>
@@ -244,10 +286,8 @@ $time_interval = get_option( 'bookly_gen_time_slot_length' );
                                 <textarea class="form-control" id="info_<?php echo $service_id ?>" name="info" rows="3" type="text"><?php echo esc_textarea( $service['info'] ) ?></textarea>
                             </div>
 
-                            <?php Proxy\CompoundServices::renderSubServices( $service, $service_collection,  $service['sub_services'] ) ?>
-                            <div class="bookly-js-service bookly-js-service-simple bookly-js-service-compound">
-                                <?php Proxy\Shared::renderServiceForm( $service ) ?>
-                            </div>
+                            <?php Proxy\CompoundServices::renderSubServices( $service, $service_collection ) ?>
+                            <?php Proxy\Shared::renderServiceForm( $service ) ?>
                             <div class="panel-footer">
                                 <input type="hidden" name="action" value="bookly_update_service">
                                 <input type="hidden" name="id" value="<?php echo esc_html( $service_id ) ?>">

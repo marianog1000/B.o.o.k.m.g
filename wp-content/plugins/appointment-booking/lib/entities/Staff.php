@@ -9,6 +9,27 @@ use Bookly\Lib;
  */
 class Staff extends Lib\Base\Entity
 {
+    /** @var  integer */
+    protected $wp_user_id;
+    /** @var  integer */
+    protected $attachment_id;
+    /** @var  string */
+    protected $full_name;
+    /** @var  string */
+    protected $email;
+    /** @var  string */
+    protected $phone;
+    /** @var  string */
+    protected $google_data;
+    /** @var  string */
+    protected $google_calendar_id;
+    /** @var  string */
+    protected $info;
+    /** @var  string */
+    protected $visibility = 'public';
+    /** @var  int */
+    protected $position = 9999;
+
     protected static $table = 'ab_staff';
 
     protected static $schema = array(
@@ -21,54 +42,9 @@ class Staff extends Lib\Base\Entity
         'google_data'        => array( 'format' => '%s' ),
         'google_calendar_id' => array( 'format' => '%s' ),
         'info'               => array( 'format' => '%s' ),
-        'visibility'         => array( 'format' => '%s', 'default' => 'public' ),
-        'position'           => array( 'format' => '%d', 'default' => 9999 ),
+        'visibility'         => array( 'format' => '%s' ),
+        'position'           => array( 'format' => '%d' ),
     );
-
-    protected static $cache = array();
-
-    /**
-     * @return false|int
-     */
-    public function save()
-    {
-        $is_new = ! $this->get( 'id' );
-
-        if ( $is_new && $this->get( 'wp_user_id' ) ) {
-            $user = get_user_by( 'id', $this->get( 'wp_user_id' ) );
-            if ( $user ) {
-                $this->set( 'email', $user->get( 'user_email' ) );
-            }
-        }
-
-        $return = parent::save();
-        if ( $this->isLoaded() ) {
-            // Register string for translate in WPML.
-            do_action( 'wpml_register_single_string', 'bookly', 'staff_' . $this->get( 'id' ), $this->get( 'full_name' ) );
-            do_action( 'wpml_register_single_string', 'bookly', 'staff_' . $this->get( 'id' ) . '_info', $this->get( 'info' ) );
-        }
-        if ( $is_new ) {
-            // Schedule items.
-            $staff_id = $this->get( 'id' );
-            foreach ( array( 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday' ) as $day_index => $week_day ) {
-                $item = new StaffScheduleItem();
-                $item->set( 'staff_id',  $staff_id )
-                    ->set( 'day_index',  $day_index + 1  )
-                    ->set( 'start_time', get_option( 'bookly_bh_' . $week_day . '_start' ) ?: null )
-                    ->set( 'end_time',   get_option( 'bookly_bh_' . $week_day . '_end' ) ?: null )
-                    ->save();
-            }
-
-            // Create holidays for staff
-            $this->wpdb->query( sprintf(
-                'INSERT INTO `' . Holiday::getTableName(). '` (`parent_id`, `staff_id`, `date`, `repeat_event`)
-                SELECT `id`, %d, `date`, `repeat_event` FROM `' . Holiday::getTableName() . '` WHERE `staff_id` IS NULL',
-                $staff_id
-            ) );
-        }
-
-        return $return;
-    }
 
     /**
      * Get schedule items of staff member.
@@ -83,7 +59,7 @@ class Staff extends Lib\Base\Entity
         // If it is 1(Mon) then the result should be 2,3,4,5,6,7,1.
         // If it is 2(Tue) then the result should be 3,4,5,6,7,1,2. Etc.
         return StaffScheduleItem::query()
-            ->where( 'staff_id',  $this->get( 'id' ) )
+            ->where( 'staff_id',  $this->getId() )
             ->sortBy( "IF(r.day_index + 10 - {$start_of_week} > 10, r.day_index + 10 - {$start_of_week}, 16 + r.day_index)" )
             ->indexBy( 'day_index' )
             ->find();
@@ -92,30 +68,34 @@ class Staff extends Lib\Base\Entity
     /**
      * Get StaffService entities associated with this staff member.
      *
+     * @param $type
      * @return StaffService[]
      */
-    public function getStaffServices()
+    public function getStaffServices( $type = Service::TYPE_SIMPLE )
     {
         $result = array();
 
-        if ( $this->get( 'id' ) ) {
+        if ( $this->getId() ) {
             $staff_services = StaffService::query( 'ss' )
                 ->select( 'ss.*, s.title, s.duration, s.price AS service_price, s.color, s.capacity_min AS service_capacity_min, s.capacity_max AS service_capacity_max' )
                 ->leftJoin( 'Service', 's', 's.id = ss.service_id' )
-                ->where( 'ss.staff_id', $this->get( 'id' ) )
-                ->where( 's.type', Service::TYPE_SIMPLE )
+                ->where( 'ss.staff_id', $this->getId() )
+                ->where( 's.type', $type )
                 ->fetchArray();
 
             foreach ( $staff_services as $data ) {
                 $ss = new StaffService( $data );
 
                 // Inject Service entity.
-                $ss->service          = new Service();
-                $data['id']           = $data['service_id'];
-                $data['price']        = $data['service_price'];
-                $data['capacity_min'] = $data['service_capacity_min'];
-                $data['capacity_max'] = $data['service_capacity_max'];
-                $ss->service->setFields( $data, true );
+                $ss->service = new Service();
+                $ss->service
+                    ->setId( $data['service_id'] )
+                    ->setTitle( $data['title'] )
+                    ->setColor( $data['color'] )
+                    ->setDuration( $data['duration'] )
+                    ->setPrice( $data['service_price'] )
+                    ->setCapacityMin( $data['service_capacity_min'] )
+                    ->setCapacityMax( $data['service_capacity_max'] );
 
                 $result[] = $ss;
             }
@@ -134,7 +114,7 @@ class Staff extends Lib\Base\Entity
     {
         $query = Holiday::query()
             ->whereRaw( '( DATE_FORMAT( date, %s ) = %s AND repeat_event = 1 ) OR date = %s', array( '%m-%d', $day->format( 'm-d' ), $day->format( 'Y-m-d' ) ) )
-            ->whereRaw( 'staff_id = %d OR staff_id IS NULL', array( $this->get( 'id' ) ) )
+            ->whereRaw( 'staff_id = %d OR staff_id IS NULL', array( $this->getId() ) )
             ->limit( 1 );
         $rows = $query->execute( Lib\Query::HYDRATE_NONE );
 
@@ -142,11 +122,267 @@ class Staff extends Lib\Base\Entity
     }
 
     /**
+     * @param string $locale
+     * @return string
+     */
+    public function getTranslatedName( $locale = null )
+    {
+        return Lib\Utils\Common::getTranslatedString( 'staff_' . $this->getId(), $this->getFullName(), $locale );
+    }
+
+    /**
+     * @param string $locale
+     * @return string
+     */
+    public function getTranslatedInfo( $locale = null )
+    {
+        return Lib\Utils\Common::getTranslatedString( 'staff_' . $this->getId() . '_info', $this->getInfo(), $locale );
+    }
+
+    /**************************************************************************
+     * Entity Fields Getters & Setters                                        *
+     **************************************************************************/
+
+    /**
+     * Gets wp_user_id
+     *
+     * @return int
+     */
+    public function getWpUserId()
+    {
+        return $this->wp_user_id;
+    }
+
+    /**
+     * Sets wp_user_id
+     *
+     * @param int $wp_user_id
+     * @return $this
+     */
+    public function setWpUserId( $wp_user_id )
+    {
+        $this->wp_user_id = $wp_user_id;
+
+        return $this;
+    }
+
+    /**
+     * Gets attachment_id
+     *
+     * @return int
+     */
+    public function getAttachmentId()
+    {
+        return $this->attachment_id;
+    }
+
+    /**
+     * Sets attachment_id
+     *
+     * @param int $attachment_id
+     * @return $this
+     */
+    public function setAttachmentId( $attachment_id )
+    {
+        $this->attachment_id = $attachment_id;
+
+        return $this;
+    }
+
+    /**
+     * Gets full name
+     *
+     * @return string
+     */
+    public function getFullName()
+    {
+        return $this->full_name;
+    }
+
+    /**
+     * Sets full name
+     *
+     * @param string $full_name
+     * @return $this
+     */
+    public function setFullName( $full_name )
+    {
+        $this->full_name = $full_name;
+
+        return $this;
+    }
+
+    /**
+     * Gets email
+     *
+     * @return string
+     */
+    public function getEmail()
+    {
+        return $this->email;
+    }
+
+    /**
+     * Sets email
+     *
+     * @param string $email
+     * @return $this
+     */
+    public function setEmail( $email )
+    {
+        $this->email = $email;
+
+        return $this;
+    }
+
+    /**
+     * Gets phone
+     *
+     * @return string
+     */
+    public function getPhone()
+    {
+        return $this->phone;
+    }
+
+    /**
+     * Sets phone
+     *
+     * @param string $phone
+     * @return $this
+     */
+    public function setPhone( $phone )
+    {
+        $this->phone = $phone;
+
+        return $this;
+    }
+
+    /**
+     * Gets google data
+     *
+     * @return string
+     */
+    public function getGoogleData()
+    {
+        return $this->google_data;
+    }
+
+    /**
+     * Sets google data
+     *
+     * @param string $google_data
+     * @return $this
+     */
+    public function setGoogleData( $google_data )
+    {
+        $this->google_data = $google_data;
+
+        return $this;
+    }
+
+    /**
+     * Gets google calendar_id
+     *
+     * @return string
+     */
+    public function getGoogleCalendarId()
+    {
+        return $this->google_calendar_id;
+    }
+
+    /**
+     * Sets google calendar_id
+     *
+     * @param string $google_calendar_id
+     * @return $this
+     */
+    public function setGoogleCalendarId( $google_calendar_id )
+    {
+        $this->google_calendar_id = $google_calendar_id;
+
+        return $this;
+    }
+
+    /**
+     * Gets info
+     *
+     * @return string
+     */
+    public function getInfo()
+    {
+        return $this->info;
+    }
+
+    /**
+     * Sets info
+     *
+     * @param string $info
+     * @return $this
+     */
+    public function setInfo( $info )
+    {
+        $this->info = $info;
+
+        return $this;
+    }
+
+    /**
+     * Gets visibility
+     *
+     * @return string
+     */
+    public function getVisibility()
+    {
+        return $this->visibility;
+    }
+
+    /**
+     * Sets visibility
+     *
+     * @param string $visibility
+     * @return $this
+     */
+    public function setVisibility( $visibility )
+    {
+        $this->visibility = $visibility;
+
+        return $this;
+    }
+
+    /**
+     * Gets position
+     *
+     * @return int
+     */
+    public function getPosition()
+    {
+        return $this->position;
+    }
+
+    /**
+     * Sets position
+     *
+     * @param int $position
+     * @return $this
+     */
+    public function setPosition( $position )
+    {
+        $this->position = $position;
+
+        return $this;
+    }
+
+    /**************************************************************************
+     * Overridden Methods                                                     *
+     **************************************************************************/
+
+    /**
      * Delete staff member.
      */
     public function delete()
     {
-        if ( $this->get( 'google_data' ) ) {
+        if ( $this->getGoogleData() ) {
             $google = new Lib\Google();
             $google->loadByStaff( $this );
             $google->revokeToken();
@@ -156,21 +392,46 @@ class Staff extends Lib\Base\Entity
     }
 
     /**
-     * @param string $locale
-     * @return string
+     * @return false|int
      */
-    public function getName( $locale = null )
+    public function save()
     {
-        return Lib\Utils\Common::getTranslatedString( 'staff_' . $this->get( 'id' ), $this->get( 'full_name' ), $locale );
-    }
+        $is_new = ! $this->getId();
 
-    /**
-     * @param string $locale
-     * @return string
-     */
-    public function getInfo( $locale = null )
-    {
-        return Lib\Utils\Common::getTranslatedString( 'staff_' . $this->get( 'id' ) . '_info', $this->get( 'info' ), $locale );
+        if ( $is_new && $this->getWpUserId() ) {
+            $user = get_user_by( 'id', $this->getWpUserId() );
+            if ( $user ) {
+                $this->setEmail( $user->get( 'user_email' ) );
+            }
+        }
+
+        $return = parent::save();
+        if ( $this->isLoaded() ) {
+            // Register string for translate in WPML.
+            do_action( 'wpml_register_single_string', 'bookly', 'staff_' . $this->getId(), $this->getFullName() );
+            do_action( 'wpml_register_single_string', 'bookly', 'staff_' . $this->getId() . '_info', $this->getInfo() );
+        }
+        if ( $is_new ) {
+            // Schedule items.
+            $staff_id = $this->getId();
+            foreach ( array( 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday' ) as $day_index => $week_day ) {
+                $item = new StaffScheduleItem();
+                $item->setStaffId( $staff_id )
+                     ->setDayIndex( $day_index + 1  )
+                     ->setStartTime( get_option( 'bookly_bh_' . $week_day . '_start' ) ?: null )
+                     ->setEndTime( get_option( 'bookly_bh_' . $week_day . '_end' ) ?: null )
+                     ->save();
+            }
+
+            // Create holidays for staff
+            self::$wpdb->query( sprintf(
+                'INSERT INTO `' . Holiday::getTableName(). '` (`parent_id`, `staff_id`, `date`, `repeat_event`)
+                SELECT `id`, %d, `date`, `repeat_event` FROM `' . Holiday::getTableName() . '` WHERE `staff_id` IS NULL',
+                $staff_id
+            ) );
+        }
+
+        return $return;
     }
 
 }

@@ -1,4 +1,5 @@
 <?php if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+use Bookly\Lib\Utils\Common;
 use Bookly\Lib\Utils\Price;
 use Bookly\Lib\Utils\DateTime;
 use Bookly\Lib\Entities;
@@ -18,7 +19,7 @@ $subtotal_deposit = 0;
             </thead>
             <tbody>
                 <tr>
-                    <td><?php echo $payment['customer'] ?></td>
+                    <td><?php echo esc_html( $payment['customer'] ) ?></td>
                     <td>
                         <div><?php _e( 'Date', 'bookly' ) ?>: <?php echo DateTime::formatDateTime( $payment['created'] ) ?></div>
                         <div><?php _e( 'Type', 'bookly' ) ?>: <?php echo Entities\Payment::typeToString( $payment['type'] ) ?></div>
@@ -47,19 +48,19 @@ $subtotal_deposit = 0;
                     $extras_price = 0; ?>
                     <tr>
                         <td>
-                            <?php if ( $item['number_of_persons'] > 1 ) echo $item['number_of_persons'] . '&nbsp;&times;&nbsp;'  ?><?php echo $item['service_name'] ?>
+                            <?php if ( $item['number_of_persons'] > 1 ) echo $item['number_of_persons'] . '&nbsp;&times;&nbsp;'  ?><?php echo esc_html( $item['service_name'] ) ?>
                             <?php if ( ! empty ( $item['extras'] ) ) : ?>
                                 <ul class="bookly-list list-dots">
                                     <?php foreach ( $item['extras'] as $extra ) : ?>
-                                        <li><?php if ( $extra['quantity'] > 1 ) echo $extra['quantity'] . '&nbsp;&times;&nbsp;' ?><?php echo $extra['title'] ?></li>
+                                        <li><?php if ( $extra['quantity'] > 1 ) echo $extra['quantity'] . '&nbsp;&times;&nbsp;' ?><?php echo esc_html( $extra['title'] ) ?></li>
                                         <?php $extras_price += $extra['price'] * $extra['quantity'] ?>
                                     <?php endforeach ?>
                                 </ul>
                             <?php endif ?>
                         </td>
                         <td><?php echo DateTime::formatDateTime( $item['appointment_date'] ) ?></td>
-                        <td><?php echo $item['staff_name'] ?></td>
-                        <?php $deposit = Proxy\DepositPayments::prepareAmount( $item['number_of_persons'] * ( $item['service_price'] + $extras_price ), $item['deposit'], $item['number_of_persons'] ) ?>
+                        <td><?php echo esc_html( $item['staff_name'] ) ?></td>
+                        <?php $deposit = Proxy\DepositPayments::prepareAmount( $payment['extras_multiply_nop'] ? $item['number_of_persons'] * ( $item['service_price'] + $extras_price ) : $item['number_of_persons'] * $item['service_price'] + $extras_price, $item['deposit'], $item['number_of_persons'] ) ?>
                         <?php if ( $deposit_enabled ) : ?>
                             <td class="text-right"><?php echo Proxy\DepositPayments::formatDeposit( $deposit, $item['deposit'] ) ?></td>
                         <?php endif ?>
@@ -71,12 +72,12 @@ $subtotal_deposit = 0;
                             <?php foreach ( $item['extras'] as $extra ) : ?>
                                 <li>
                                     <?php printf( '%s%s%s',
-                                        ( $item['number_of_persons'] > 1 ) ? $item['number_of_persons'] . '&nbsp;&times;&nbsp;' : '',
+                                        ( $item['number_of_persons'] > 1 && $payment['extras_multiply_nop'] ) ? $item['number_of_persons'] . '&nbsp;&times;&nbsp;' : '',
                                         ( $extra['quantity'] > 1 ) ? $extra['quantity'] . '&nbsp;&times;&nbsp;' : '',
                                         Price::format( $extra['price'] )
                                     ) ?>
                                 </li>
-                                <?php $subtotal += $item['number_of_persons'] * $extra['price'] * $extra['quantity'] ?>
+                                <?php $subtotal += $payment['extras_multiply_nop'] ? $item['number_of_persons'] * $extra['price'] * $extra['quantity'] : $extra['price'] * $extra['quantity'] ?>
                             <?php endforeach ?>
                             </ul>
                         </td>
@@ -87,7 +88,7 @@ $subtotal_deposit = 0;
             </tbody>
             <tfoot>
                 <tr>
-                    <th rowspan="3" style="border-left-color: white; border-bottom-color: white;"></th>
+                    <th rowspan="2" style="border-left-color: white; border-bottom-color: white;"></th>
                     <th colspan="2"><?php _e( 'Subtotal', 'bookly' ) ?></th>
                     <?php if ( $deposit_enabled ) : ?>
                         <th class="text-right"><?php echo Price::format( $subtotal_deposit ) ?></th>
@@ -112,25 +113,69 @@ $subtotal_deposit = 0;
                         <?php endif ?>
                     </th>
                 </tr>
+                <?php Proxy\CustomerGroups::renderPaymentsDialogRow( $payment['customer_group'] ) ?>
+                <?php foreach ( $adjustments as $adjustment ) : ?>
                 <tr>
+                    <th style="border-left-color:#fff;border-bottom-color:#fff;"></th>
+                    <th colspan="<?php echo 2 + (int) $deposit_enabled ?>">
+                        <?php echo esc_html( $adjustment['reason'] ) ?>
+                    </th>
+                    <th class="text-right"><?php echo Price::format( $adjustment['amount'] ) ?></th>
+                </tr>
+                <?php endforeach ?>
+                <tr id="bookly-js-adjustment-field" class="collapse">
+                    <th style="border-left-color:#fff;border-bottom-color:#fff;"></th>
+                    <th colspan="<?php echo 3 + (int) $deposit_enabled ?>" style="font-weight: normal;">
+                        <div class="form-group">
+                            <label for="bookly-js-adjustment-reason"><?php _e( 'Reason', 'bookly' ) ?></label>
+                            <textarea class="form-control" id="bookly-js-adjustment-reason"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="bookly-js-adjustment-amount"><?php _e( 'Amount', 'bookly' ) ?></label>
+                            <input class="form-control" type="number" step="1" id="bookly-js-adjustment-amount">
+                        </div>
+                        <div class="text-right">
+                            <?php Common::customButton( 'bookly-js-adjustment-cancel', 'btn btn-default', __( 'Cancel', 'bookly' ) ) ?>
+                            <?php Common::customButton( 'bookly-js-adjustment-apply', 'btn btn-success', __( 'Apply', 'bookly' ) ) ?>
+                        </div>
+                    </th>
+                </tr>
+                <?php if ( $payment['price_correction'] ) : ?>
+                    <tr>
+                        <th style="border-left-color:#fff;border-bottom-color:#fff;"></th>
+                        <th colspan="<?php echo 2 + (int) $deposit_enabled ?>">
+                            <?php echo Entities\Payment::typeToString( $payment['type'] ) ?>
+                        </th>
+                        <th class="text-right">
+                            <?php echo Price::format( $payment['price_correction'] ) ?>
+                        </th>
+                    </tr>
+                <?php endif ?>
+                <tr>
+                    <th style="border-left-color:#fff;border-bottom-color:#fff;"></th>
                     <th colspan="<?php echo 2 + (int) $deposit_enabled ?>"><?php _e( 'Total', 'bookly' ) ?></th>
                     <th class="text-right"><?php echo Price::format( $payment['total'] ) ?></th>
                 </tr>
                 <?php if ( $payment['total'] != $payment['paid'] ) : ?>
                     <tr>
-                        <td rowspan="2" style="border-left-color:#fff;border-bottom-color:#fff;"></td>
-                        <td colspan="<?php echo 2 + (int) $deposit_enabled ?>"><i><?php _e( 'Paid', 'bookly' ) ?></i></td>
-                        <td class="text-right"><i><?php echo Price::format( $payment['paid'] ) ?></i></td>
+                        <th rowspan="2" style="border-left-color:#fff;border-bottom-color:#fff;"></th>
+                        <th colspan="<?php echo 2 + (int) $deposit_enabled ?>"><i><?php _e( 'Paid', 'bookly' ) ?></i></th>
+                        <th class="text-right"><i><?php echo Price::format( $payment['paid'] ) ?></i></th>
                     </tr>
                     <tr>
-                        <td colspan="<?php echo 2 + (int) $deposit_enabled ?>"><i><?php _e( 'Due', 'bookly' ) ?></i></td>
-                        <td class="text-right"><i><?php echo Price::format( $payment['total'] - $payment['paid'] ) ?></i></td>
-                    </tr>
-                    <tr>
-                        <td style="border-left-color:#fff;border-bottom-color:#fff;"></td>
-                        <td colspan="<?php echo 3 + (int) $deposit_enabled ?>" class="text-right"><button type="button" class="btn btn-success ladda-button" id="bookly-complete-payment" data-spinner-size="40" data-style="zoom-in"><i><?php _e( 'Complete payment', 'bookly' ) ?></i></button></td>
+                        <th colspan="<?php echo 2 + (int) $deposit_enabled ?>"><i><?php _e( 'Due', 'bookly' ) ?></i></th>
+                        <th class="text-right"><i><?php echo Price::format( $payment['total'] - $payment['paid'] ) ?></i></th>
                     </tr>
                 <?php endif ?>
+                    <tr>
+                        <th style="border-left-color:#fff;border-bottom-color:#fff;"></th>
+                        <th colspan="<?php echo 3 + (int) $deposit_enabled ?>" class="text-right">
+                            <?php Common::customButton( 'bookly-js-adjustment-button', 'btn btn-default', __( 'Manual adjustment', 'bookly' ) ) ?>
+                            <?php if ( $payment['total'] != $payment['paid'] ) : ?>
+                            <button type="button" class="btn btn-success ladda-button" id="bookly-complete-payment" data-spinner-size="40" data-style="zoom-in"><i><?php _e( 'Complete payment', 'bookly' ) ?></i></button>
+                            <?php endif ?>
+                        </th>
+                    </tr>
             </tfoot>
         </table>
     </div>
